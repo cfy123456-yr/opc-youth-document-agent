@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "opc-youth-document-agent"
+version = "0.2.0"
+description = "A local-first agent for youth resumes, letters, contracts, and receipts."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+openai = ["openai>=1.40"]
+documents = [
+    "markitdown>=0.1.0",
+    "python-docx>=1.1.0",
+    "pypdf>=5.0.0",
+]
+ocr = [
+    "paddleocr>=2.8.0",
+    "paddlepaddle>=2.6.0",
+]
+dev = [
+    "coverage>=7.6.0",
+    "pytest>=8.0.0",
+    "ruff>=0.8.0",
+]
+
+[project.scripts]
+opc-agent = "opc_agent.cli:main"
+opc-agent-web = "opc_agent.web:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["opc_agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.coverage.run]
+branch = true
+source = ["opc_agent"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

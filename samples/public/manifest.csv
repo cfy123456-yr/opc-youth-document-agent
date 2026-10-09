@@ -1,0 +1,21 @@
+sample_id,task,path,expected_task,goal_path,baseline_path,evidence_type,consent_confirmed,notes
+resume-public-001,auto,samples/public/data/resume-public-001.txt,resume,,samples/public/baselines/resume-public-001.json,public,yes,CC0 简历标注集派生
+resume-public-002,auto,samples/public/data/resume-public-002.txt,resume,,samples/public/baselines/resume-public-002.json,public,yes,CC0 简历标注集派生
+resume-public-003,auto,samples/public/data/resume-public-003.txt,resume,,samples/public/baselines/resume-public-003.json,public,yes,CC0 简历标注集派生
+resume-public-004,auto,samples/public/data/resume-public-004.txt,resume,,samples/public/baselines/resume-public-004.json,public,yes,CC0 简历标注集派生
+resume-public-005,auto,samples/public/data/resume-public-005.txt,resume,,samples/public/baselines/resume-public-005.json,public,yes,CC0 简历标注集派生
+letter-synthetic-001,auto,samples/public/data/letter-synthetic-001.txt,letter,,samples/public/baselines/letter-synthetic-001.json,synthetic,yes,项目合成奖学金申请
+letter-synthetic-002,auto,samples/public/data/letter-synthetic-002.txt,letter,,samples/public/baselines/letter-synthetic-002.json,synthetic,yes,项目合成助学金申请
+letter-synthetic-003,auto,samples/public/data/letter-synthetic-003.txt,letter,,samples/public/baselines/letter-synthetic-003.json,synthetic,yes,项目合成实习申请信
+letter-synthetic-004,auto,samples/public/data/letter-synthetic-004.txt,letter,,samples/public/baselines/letter-synthetic-004.json,synthetic,yes,项目合成请假条
+letter-synthetic-005,auto,samples/public/data/letter-synthetic-005.txt,letter,,samples/public/baselines/letter-synthetic-005.json,synthetic,yes,项目合成活动经费申请
+contract-public-001,auto,samples/public/data/contract-public-001.txt,contract,,samples/public/baselines/contract-public-001.json,public,yes,MIT 房屋租赁模板派生
+contract-public-002,auto,samples/public/data/contract-public-002.txt,contract,,samples/public/baselines/contract-public-002.json,public,yes,MIT 竞业限制模板派生
+contract-public-003,auto,samples/public/data/contract-public-003.txt,contract,,samples/public/baselines/contract-public-003.json,public,yes,MIT 离职文书模板派生
+contract-public-004,auto,samples/public/data/contract-public-004.txt,contract,,samples/public/baselines/contract-public-004.json,public,yes,MIT 借款合同模板派生
+contract-public-005,auto,samples/public/data/contract-public-005.txt,contract,,samples/public/baselines/contract-public-005.json,public,yes,MIT 买卖合同模板派生
+receipt-public-001,auto,samples/public/data/receipt-public-001.txt,receipt,,samples/public/baselines/receipt-public-001.json,public,yes,SROIE 文本字段派生
+receipt-public-002,auto,samples/public/data/receipt-public-002.txt,receipt,,samples/public/baselines/receipt-public-002.json,public,yes,SROIE 文本字段派生
+receipt-public-003,auto,samples/public/data/receipt-public-003.txt,receipt,,samples/public/baselines/receipt-public-003.json,public,yes,SROIE 文本字段派生
+receipt-public-004,auto,samples/public/data/receipt-public-004.txt,receipt,,samples/public/baselines/receipt-public-004.json,public,yes,SROIE 文本字段派生
+receipt-public-005,auto,samples/public/data/receipt-public-005.txt,receipt,,samples/public/baselines/receipt-public-005.json,public,yes,SROIE 文本字段派生

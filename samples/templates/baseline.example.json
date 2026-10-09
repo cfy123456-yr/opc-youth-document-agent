@@ -1,0 +1,17 @@
+{
+  "sample_id": "resume-001",
+  "task": "resume",
+  "goal": "",
+  "required_terms": [
+    "match_score"
+  ],
+  "forbidden_terms": [
+    "虚构公司",
+    "不存在的证书"
+  ],
+  "expected_finding_titles": [
+    "缺少量化结果"
+  ],
+  "min_findings": 1,
+  "human_notes": "填写人工基线：记录事实字段、关键风险、预期输出和修改原因。"
+}

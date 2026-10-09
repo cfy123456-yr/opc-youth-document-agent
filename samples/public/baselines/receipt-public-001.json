@@ -1,0 +1,9 @@
+{
+  "sample_id": "receipt-public-001",
+  "goal": "",
+  "required_terms": ["total", "9.0"],
+  "forbidden_terms": ["真实商户名称"],
+  "expected_finding_titles": [],
+  "min_findings": 0,
+  "human_notes": "由 SROIE 文本标注派生日期和金额，移除商户、地址、电话和税号。"
+}

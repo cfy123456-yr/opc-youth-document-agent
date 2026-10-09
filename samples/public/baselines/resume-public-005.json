@@ -1,0 +1,9 @@
+{
+  "sample_id": "resume-public-005",
+  "goal": "产品运营 数据分析 内容运营 活动策划",
+  "required_terms": ["match_score"],
+  "forbidden_terms": ["虚构公司", "不存在的奖项"],
+  "expected_finding_titles": ["动作词偏弱"],
+  "min_findings": 1,
+  "human_notes": "中文运营简历回归，验证非技术岗位的通用分析流程。"
+}

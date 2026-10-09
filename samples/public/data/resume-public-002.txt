@@ -1,0 +1,18 @@
+Resume
+Candidate B
+Email: candidate-b@example.com
+Target: Data Analyst
+
+Work Experience
+Participated in dashboard delivery for student analytics.
+Used Python and SQL to clean weekly datasets.
+
+Project
+Campus Food Survey
+Prepared summary charts and presented findings to the student union.
+
+Education
+Example University, Information Management
+
+Skills
+Python, SQL, Tableau, Excel

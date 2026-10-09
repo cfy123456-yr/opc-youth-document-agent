@@ -1,0 +1,9 @@
+{
+  "sample_id": "receipt-public-004",
+  "goal": "",
+  "required_terms": ["total", "80.9"],
+  "forbidden_terms": ["真实商户名称"],
+  "expected_finding_titles": [],
+  "min_findings": 0,
+  "human_notes": "由 SROIE 文本标注派生日期和金额，用于交通类别回归。"
+}

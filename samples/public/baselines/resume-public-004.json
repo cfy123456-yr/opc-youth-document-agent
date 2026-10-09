@@ -1,0 +1,9 @@
+{
+  "sample_id": "resume-public-004",
+  "goal": "Cloud Operations Engineer Linux AWS Docker Jenkins",
+  "required_terms": ["match_score", "docker"],
+  "forbidden_terms": ["虚构项目"],
+  "expected_finding_titles": [],
+  "min_findings": 0,
+  "human_notes": "英文运维简历回归，验证云平台工具体系和技能覆盖。"
+}

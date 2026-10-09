@@ -1,0 +1,9 @@
+{
+  "sample_id": "contract-public-003",
+  "goal": "",
+  "required_terms": ["risk_score"],
+  "forbidden_terms": ["放弃权利一定有效"],
+  "expected_finding_titles": ["权利放弃风险", "劳动补偿风险", "培训费与服务期"],
+  "min_findings": 3,
+  "human_notes": "由 MIT 离职文书模板派生并脱敏，验证劳动补偿、权利放弃和服务期风险。"
+}

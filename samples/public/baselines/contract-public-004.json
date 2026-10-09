@@ -1,0 +1,9 @@
+{
+  "sample_id": "contract-public-004",
+  "goal": "",
+  "required_terms": ["risk_score"],
+  "forbidden_terms": ["违约金一定合法"],
+  "expected_finding_titles": ["违约金异常", "争议解决条款"],
+  "min_findings": 2,
+  "human_notes": "由 MIT 借款合同模板派生并脱敏，验证逾期违约金和管辖条款。"
+}

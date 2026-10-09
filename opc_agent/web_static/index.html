@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      name="description"
+      content="青年文书智能助手本地工作台，处理简历、申请函、合同和票据。"
+    >
+    <meta name="theme-color" content="#171a1c">
+    <title>青年文书智能助手</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#workspace">跳到文书处理台</a>
+
+    <div class="app-frame">
+      <header class="desk-header">
+        <a class="brand" href="#workspace" aria-label="返回处理台顶部">
+          <span class="brand-mark" aria-hidden="true">文</span>
+          <span class="brand-name">青年文书智能助手</span>
+        </a>
+        <div class="runtime-badge" aria-live="polite">
+          <span class="runtime-dot" aria-hidden="true"></span>
+          <span id="provider-status">正在检查本地运行状态</span>
+        </div>
+      </header>
+
+      <aside class="demo-banner" id="demo-banner" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3 3 20h18z"></path>
+          <path d="M12 9v5M12 17h.01"></path>
+        </svg>
+        <p>
+          <strong>公开演示环境</strong>
+          <span id="demo-notice">
+            请勿上传真实证件、合同、简历或票据。
+          </span>
+        </p>
+      </aside>
+
+      <div class="workbench">
+        <aside class="task-rail" aria-labelledby="task-heading">
+          <div class="rail-heading">
+            <h1 id="task-heading">文件处理台</h1>
+          </div>
+
+          <nav class="task-tabs" aria-label="文书任务">
+            <button
+              class="task-tab"
+              type="button"
+              data-task="auto"
+              aria-pressed="true"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 6h10M4 12h16M4 18h10"></path>
+                <path d="m16 4 2 2-2 2M20 10l2 2-2 2M16 16l2 2-2 2"></path>
+              </svg>
+              <span><strong>自动识别</strong><small>让路由器判断类型</small></span>
+            </button>
+            <button
+              class="task-tab task-tab--blue"
+              type="button"
+              data-task="resume"
+              aria-pressed="false"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 3h8l4 4v14H7z"></path>
+                <path d="M15 3v5h4M10 12h6M10 16h6"></path>
+              </svg>
+              <span><strong>简历</strong><small>匹配岗位并检查表达</small></span>
+            </button>
+            <button
+              class="task-tab task-tab--green"
+              type="button"
+              data-task="letter"
+              aria-pressed="false"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 5h16v14H4z"></path>
+                <path d="m4 7 8 6 8-6M8 16h5"></path>
+              </svg>
+              <span><strong>申请函</strong><small>润色结构、语气和承诺</small></span>
+            </button>
+            <button
+              class="task-tab task-tab--red"
+              type="button"
+              data-task="contract"
+              aria-pressed="false"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 3h9l4 4v14H6z"></path>
+                <path d="M15 3v5h4M9 12h7M9 16h5"></path>
+                <path d="m7 19-2 2"></path>
+              </svg>
+              <span><strong>合同</strong><small>标记风险和复核边界</small></span>
+            </button>
+            <button
+              class="task-tab task-tab--amber"
+              type="button"
+              data-task="receipt"
+              aria-pressed="false"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path>
+                <path d="M9 8h6M9 12h6M9 16h3"></path>
+              </svg>
+              <span><strong>票据</strong><small>整理明细、合计和重复项</small></span>
+            </button>
+          </nav>
+
+          <div class="local-note">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="5" y="10" width="14" height="10" rx="2"></rect>
+              <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"></path>
+            </svg>
+            <p>
+              <strong>本地优先</strong>
+              默认由本地规则处理，不上传云端。结果写入
+              <code>outputs/web</code>。
+            </p>
+          </div>
+        </aside>
+
+        <main id="workspace" class="work-surface">
+          <section class="proof-sheet" aria-labelledby="current-task-title">
+            <div class="proof-holes" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+
+            <div class="proof-heading">
+              <div>
+                <h2 id="current-task-title">自动判断文书类型</h2>
+                <p id="task-description">
+                  粘贴内容或上传文件，路由器会先判断任务，再调用对应工作流。
+                </p>
+              </div>
+              <div class="route-stamp is-idle" id="route-stamp" aria-live="polite">
+                <span id="route-stamp-label">待处理</span>
+              </div>
+            </div>
+
+            <form id="agent-form" novalidate>
+              <fieldset class="source-switch">
+                <legend>输入方式</legend>
+                <label>
+                  <input
+                    type="radio"
+                    name="source-mode"
+                    value="paste"
+                    checked
+                  >
+                  <span>粘贴文本</span>
+                </label>
+                <label>
+                  <input type="radio" name="source-mode" value="upload">
+                  <span>上传文件</span>
+                </label>
+              </fieldset>
+
+              <div class="input-panel" id="paste-panel">
+                <div class="field-heading">
+                  <label for="content">文书正文</label>
+                  <span id="char-count">0 字符</span>
+                </div>
+                <textarea
+                  id="content"
+                  name="content"
+                  rows="11"
+                  placeholder="把简历、申请函、合同条款或票据文字粘贴到这里。"
+                  aria-describedby="content-help"
+                ></textarea>
+                <p class="field-help" id="content-help">
+                  Agent 只处理这里出现的事实，不会替你补充未提供的经历或承诺。
+                </p>
+              </div>
+
+              <div class="input-panel" id="upload-panel" hidden>
+                <label class="file-drop" for="file">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 16V4M7 9l5-5 5 5"></path>
+                    <path d="M5 14v5h14v-5"></path>
+                  </svg>
+                  <span>
+                    <strong>选择一份本地文件</strong>
+                    <small>支持 TXT、Markdown、JSON、CSV；DOCX、PDF 和图片需安装可选解析依赖</small>
+                  </span>
+                </label>
+                <input
+                  class="visually-hidden"
+                  id="file"
+                  name="file"
+                  type="file"
+                  accept=".txt,.md,.json,.csv,.docx,.pdf,.png,.jpg,.jpeg,.webp"
+                >
+                <div class="file-meta" id="file-meta" hidden>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 3h8l4 4v14H7z"></path>
+                    <path d="M15 3v5h4"></path>
+                  </svg>
+                  <span>
+                    <strong id="file-name"></strong>
+                    <small id="file-size"></small>
+                  </span>
+                  <button type="button" id="clear-file">移除</button>
+                </div>
+              </div>
+
+              <div class="goal-field" id="goal-group" hidden>
+                <div class="field-heading">
+                  <label for="goal">目标岗位 / JD</label>
+                  <span>用于匹配关键词</span>
+                </div>
+                <textarea
+                  id="goal"
+                  name="goal"
+                  rows="5"
+                  placeholder="粘贴岗位职责、技能要求或招聘描述。"
+                ></textarea>
+              </div>
+
+              <div class="action-bar">
+                <button class="button button--quiet" id="example-button" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 5h16v14H4z"></path>
+                    <path d="m4 7 8 6 8-6"></path>
+                  </svg>
+                  载入示例
+                </button>
+                <span class="action-note" id="form-hint">
+                  无需 API Key，默认使用本地规则。
+                </span>
+                <button class="button button--run" id="run-button" type="submit">
+                  <span>运行 Agent</span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 12h13M13 7l5 5-5 5"></path>
+                  </svg>
+                </button>
+              </div>
+              <p
+                class="form-error"
+                id="form-error"
+                role="alert"
+                tabindex="-1"
+                hidden
+              ></p>
+            </form>
+
+            <ol class="process-strip" aria-label="处理流程">
+              <li data-step="read"><span>1</span>读取文稿</li>
+              <li data-step="route"><span>2</span>判断任务</li>
+              <li data-step="review"><span>3</span>生成校样</li>
+            </ol>
+
+            <div class="runtime-status" id="status-region" aria-live="polite">
+              <div class="empty-proof">
+                <div class="empty-proof-lines" aria-hidden="true">
+                  <span></span><span></span><span></span><span></span>
+                </div>
+                <div>
+                  <strong>等待文稿进入处理台</strong>
+                  <p>选择文件标签、放入正文，然后运行一次校样。</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section
+            class="result-section"
+            id="result-section"
+            aria-labelledby="result-title"
+            hidden
+          >
+            <article class="result-paper">
+              <header class="result-heading">
+                <div>
+                  <h2 id="result-title">本次结果</h2>
+                  <p id="result-summary"></p>
+                  <a class="result-return" href="#workspace">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M19 12H6M11 7l-5 5 5 5"></path>
+                    </svg>
+                    修改文稿
+                  </a>
+                </div>
+                <div class="result-stamp" id="result-stamp">
+                  <span id="result-confidence">0%</span>
+                  <small>结果置信度</small>
+                </div>
+              </header>
+
+              <dl class="result-meta">
+                <div>
+                  <dt>任务路由</dt>
+                  <dd id="meta-task"></dd>
+                </div>
+                <div>
+                  <dt>路由置信度</dt>
+                  <dd id="meta-route-confidence"></dd>
+                </div>
+                <div>
+                  <dt>运行模式</dt>
+                  <dd id="meta-provider"></dd>
+                </div>
+              </dl>
+
+              <section class="result-block" id="warnings-block" hidden>
+                <h3>运行提示</h3>
+                <ul class="warning-list" id="warnings-list"></ul>
+              </section>
+
+              <section class="result-block">
+                <div class="block-heading">
+                  <h3>批注与建议</h3>
+                  <span id="finding-count"></span>
+                </div>
+                <div class="finding-list" id="finding-list"></div>
+              </section>
+
+              <section class="result-block">
+                <h3>结构化结果</h3>
+                <div id="structured-result"></div>
+              </section>
+
+              <section class="result-block download-block">
+                <div>
+                  <h3>导出校样</h3>
+                  <p>报告保留来源、发现、结构化结果和使用边界。</p>
+                </div>
+                <div class="download-list" id="download-list"></div>
+              </section>
+
+              <aside class="boundary-note" id="boundary-note" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 3 3 20h18z"></path>
+                  <path d="M12 9v5M12 17h.01"></path>
+                </svg>
+                <div>
+                  <strong id="boundary-title"></strong>
+                  <p id="boundary-copy"></p>
+                </div>
+              </aside>
+            </article>
+          </section>
+        </main>
+
+        <aside class="review-margin" aria-labelledby="review-heading">
+          <div class="margin-sheet">
+            <h2 id="review-heading">结果怎么看</h2>
+            <ol class="review-guide">
+              <li>
+                <span>01</span>
+                <p><strong>先看路由</strong>确认 Agent 是否处理了正确的文书类型。</p>
+              </li>
+              <li>
+                <span>02</span>
+                <p><strong>再读批注</strong>逐条核对证据，不把建议当成已发生事实。</p>
+              </li>
+              <li>
+                <span>03</span>
+                <p><strong>最后复核</strong>合同与票据必须回到原文件人工确认。</p>
+              </li>
+            </ol>
+
+            <div class="risk-legend" aria-label="严重度图例">
+              <p class="section-label">标记</p>
+              <ul>
+                <li><span class="risk-mark risk-mark--high"></span>高风险</li>
+                <li><span class="risk-mark risk-mark--medium"></span>需确认</li>
+                <li><span class="risk-mark risk-mark--low"></span>可优化</li>
+              </ul>
+            </div>
+
+            <div class="latest-note" id="latest-note">
+              <p class="section-label">最近校样</p>
+              <p>还没有运行记录。</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <footer class="desk-footer">
+        <span>青年文书智能助手</span>
+        <span>事实约束 · 本地优先 · 人工复核</span>
+      </footer>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "sample_id": "resume-public-002",
+  "goal": "Data Analyst Python SQL Tableau",
+  "required_terms": ["match_score", "python"],
+  "forbidden_terms": ["虚构项目", "不存在的证书"],
+  "expected_finding_titles": [],
+  "min_findings": 0,
+  "human_notes": "英文数据岗位简历回归，验证英文简历路由和岗位关键词覆盖。"
+}

@@ -1,0 +1,59 @@
+name: opc-youth-document-agent
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        OPC_EXTRAS: documents,openai
+    image: opc-youth-document-agent:0.2.0
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${OPC_BIND_ADDRESS:-127.0.0.1}:${OPC_BIND_PORT:-8765}:8080"
+    environment:
+      OPC_PROVIDER: "${OPC_PROVIDER:-mock}"
+      OPC_MODEL: "${OPC_MODEL:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPC_WEB_OUTPUT_DIR: /data/outputs
+      OPC_PUBLIC_DEMO: "${OPC_PUBLIC_DEMO:-false}"
+      OPC_OUTPUT_TTL_SECONDS: "${OPC_OUTPUT_TTL_SECONDS:-0}"
+      OPC_MAX_RUNS_PER_WINDOW: "${OPC_MAX_RUNS_PER_WINDOW:-0}"
+      OPC_MAX_CONCURRENT_RUNS: "${OPC_MAX_CONCURRENT_RUNS:-2}"
+      OPC_MAX_UPLOAD_MB: "${OPC_MAX_UPLOAD_MB:-15}"
+    volumes:
+      - opc_data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  caddy:
+    image: caddy:2-alpine
+    profiles:
+      - public
+    init: true
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      OPC_SITE_ADDRESS: "${OPC_SITE_ADDRESS:-localhost}"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  opc_data:
+  caddy_data:
+  caddy_config:

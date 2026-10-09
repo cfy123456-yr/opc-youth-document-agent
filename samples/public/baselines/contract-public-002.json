@@ -1,0 +1,9 @@
+{
+  "sample_id": "contract-public-002",
+  "goal": "",
+  "required_terms": ["risk_score"],
+  "forbidden_terms": ["一定会被法院支持"],
+  "expected_finding_titles": ["竞业限制", "违约金异常", "争议解决条款"],
+  "min_findings": 3,
+  "human_notes": "由 MIT 竞业限制模板派生并脱敏，验证补偿、期限、违约金和仲裁条款。"
+}

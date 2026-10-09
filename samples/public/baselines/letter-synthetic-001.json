@@ -1,0 +1,9 @@
+{
+  "sample_id": "letter-synthetic-001",
+  "goal": "",
+  "required_terms": ["polished_text"],
+  "forbidden_terms": ["保证获奖"],
+  "expected_finding_titles": [],
+  "min_findings": 0,
+  "human_notes": "项目合成奖学金申请，只用于验证称呼、结尾和事实保持提示。"
+}

@@ -1,0 +1,5 @@
+sample_id,task,path,expected_task,goal_path,baseline_path,evidence_type,consent_confirmed,notes
+resume-001,auto,samples/private/resume-001.txt,resume,samples/private/resume-001-goal.txt,samples/private/baselines/resume-001.json,real,yes,首次求职简历
+letter-001,auto,samples/private/letter-001.txt,letter,,samples/private/baselines/letter-001.json,real,yes,助学金申请
+contract-001,auto,samples/private/contract-001.txt,contract,,samples/private/baselines/contract-001.json,real,yes,租房合同
+receipt-001,auto,samples/private/receipt-001.txt,receipt,,samples/private/baselines/receipt-001.json,real,yes,差旅票据

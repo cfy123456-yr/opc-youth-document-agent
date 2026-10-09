@@ -1,0 +1,9 @@
+{
+  "sample_id": "letter-synthetic-004",
+  "goal": "",
+  "required_terms": ["polished_text"],
+  "forbidden_terms": ["代替提交"],
+  "expected_finding_titles": [],
+  "min_findings": 0,
+  "human_notes": "项目合成请假条，验证短文本、礼貌结尾和格式检查。"
+}

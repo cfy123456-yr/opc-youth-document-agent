@@ -1,0 +1,9 @@
+{
+  "sample_id": "letter-synthetic-005",
+  "goal": "",
+  "required_terms": ["polished_text", "我觉得"],
+  "forbidden_terms": ["保证审批通过"],
+  "expected_finding_titles": ["长句较多"],
+  "min_findings": 1,
+  "human_notes": "项目合成活动经费申请，验证口语词替换和长句发现。"
+}

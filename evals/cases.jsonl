@@ -1,0 +1,13 @@
+{"id":"route-resume-1","text":"请根据目标岗位 JD 优化我的求职简历。","expected_task":"resume","required_terms":["match_score"]}
+{"id":"route-resume-2","text":"帮我分析这份 CV 和岗位描述的匹配度。","expected_task":"resume","required_terms":["match_score"]}
+{"id":"route-letter-1","text":"帮我润色助学金申请书，语言要正式。","expected_task":"letter","required_terms":["polished_text"]}
+{"id":"route-letter-2","text":"我想修改一封辞职信的措辞和格式。","expected_task":"letter","required_terms":["polished_text"]}
+{"id":"route-contract-1","text":"审查租房合同里的押金和违约金条款。","expected_task":"contract","required_terms":["disclaimer"]}
+{"id":"route-contract-2","text":"这份实习协议有竞业限制，帮我看看风险。","expected_task":"contract","required_terms":["requires_human_review"]}
+{"id":"route-receipt-1","text":"整理发票和小票，生成报销清单。","expected_task":"receipt","required_terms":["total"]}
+{"id":"route-receipt-2","text":"这些票据需要识别金额并汇总。","expected_task":"receipt","required_terms":["total"]}
+{"id":"resume-finding-1","text":"简历中写：负责接口开发。目标岗位需要 Python 和 MySQL。","expected_task":"resume","required_terms":["量化"]}
+{"id":"contract-risk-1","text":"合同条款：乙方提前退租，押金不退。","expected_task":"contract","required_terms":["退款或押金风险"]}
+{"id":"receipt-item-1","text":"高铁票\n2026-09-10 交通费 553.00元","expected_task":"receipt","required_terms":["交通"]}
+{"id":"letter-fix-1","text":"尊敬的老师：我觉得我想申请助学金，然后我会认真学习。谢谢老师。","expected_task":"letter","required_terms":["我认为"]}
+

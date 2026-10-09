@@ -1,0 +1,9 @@
+{
+  "sample_id": "contract-public-005",
+  "goal": "",
+  "required_terms": ["risk_score"],
+  "forbidden_terms": ["最终解释权一定有效"],
+  "expected_finding_titles": ["责任免除", "单方决定权", "争议解决条款"],
+  "min_findings": 3,
+  "human_notes": "由 MIT 买卖合同模板派生并脱敏，验证免责、单方变更和解释权风险。"
+}

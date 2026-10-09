@@ -1,0 +1,18 @@
+Resume
+Candidate D
+Email: candidate-d@example.com
+Target: Cloud Operations Engineer
+
+Professional Summary
+Software engineer focused on Linux operations, cloud infrastructure and deployment automation.
+
+Work Experience
+Implemented infrastructure automation with Ansible and Jenkins.
+Maintained Linux servers and improved deployment scripts.
+Used AWS services for build and monitoring workflows.
+
+Education
+Example Institute of Technology
+
+Skills
+Linux, AWS, Docker, Jenkins, Ansible, Python, Git

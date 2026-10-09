@@ -1,0 +1,9 @@
+{
+  "sample_id": "letter-synthetic-003",
+  "goal": "",
+  "required_terms": ["polished_text"],
+  "forbidden_terms": ["虚构实习经历"],
+  "expected_finding_titles": [],
+  "min_findings": 0,
+  "human_notes": "项目合成实习申请信，验证求职类申请文本的文体识别。"
+}

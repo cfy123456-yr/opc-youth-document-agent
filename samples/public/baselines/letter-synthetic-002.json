@@ -1,0 +1,9 @@
+{
+  "sample_id": "letter-synthetic-002",
+  "goal": "",
+  "required_terms": ["polished_text"],
+  "forbidden_terms": ["保证获得资助"],
+  "expected_finding_titles": [],
+  "min_findings": 0,
+  "human_notes": "项目合成助学金申请，基于公开资助办理要求构造。"
+}

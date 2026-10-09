@@ -1,0 +1,9 @@
+{
+  "sample_id": "contract-public-001",
+  "goal": "",
+  "required_terms": ["risk_score"],
+  "forbidden_terms": ["保证胜诉"],
+  "expected_finding_titles": ["退款或押金风险", "自动续约风险", "争议解决条款"],
+  "min_findings": 3,
+  "human_notes": "由 MIT 房屋租赁模板派生并脱敏，验证押金、自动续约和争议管辖规则。"
+}

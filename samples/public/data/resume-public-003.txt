@@ -1,0 +1,17 @@
+求职简历
+姓名：候选人丙
+邮箱：candidate-c@example.com
+
+求职方向：前端开发工程师
+
+项目经历
+校园活动报名平台
+负责页面开发，参与组件库维护。
+使用 Vue 和 TypeScript 完成报名表单。
+
+实习经历
+某软件公司 | 前端实习生
+协助修复移动端样式问题，参与版本发布。
+
+技能
+JavaScript、TypeScript、Vue、HTML、CSS
