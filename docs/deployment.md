@@ -81,6 +81,41 @@ HTTPS 隧道；公网首页、健康接口、申请函合成样本提交、报�
 成功。本次验收仍只使用仓库内合成文本，没有提交真实用户文档，临时隧道地址随本机
 或 SSH 会话关闭而失效，不作为稳定交付地址。
 
+## PythonAnywhere 固定部署
+
+PythonAnywhere 适合当前标准库 WSGI 版本。应用入口为
+`deploy/pythonanywhere_wsgi.py`，底层适配器为 `opc_agent/wsgi.py`。部署时把入口
+文件复制到 PythonAnywhere 的 `/var/www/<domain>_wsgi.py`，或把其中的
+`application` 接入现有 WSGI 文件。
+
+默认挂载路径是 `/youth/`：
+
+```text
+https://<username>.pythonanywhere.com/youth/
+```
+
+该入口只接管 `/youth/` 及其子路径，其他路径继续交给原有 WSGI 应用，因此不会覆盖
+同一账号上已经运行的根路径服务。公网演示参数由入口固定为：
+
+- `provider=mock`
+- 上传上限 15 MB
+- 单 IP 每分钟 12 次
+- 最多 2 个并发任务
+- 结果保留 1 小时后自动清理
+
+部署后的检查：
+
+```text
+GET /youth/
+GET /youth/api/health
+GET /youth/api/examples?task=letter
+POST /youth/api/run
+GET /youth/api/download?token=...
+```
+
+健康接口应返回 `ok=true`、`public_demo=true` 和 `provider=mock`。公开链路只使用
+仓库内合成样本验证，不接收真实证件、合同、简历或票据。
+
 ## Docker 本地验证
 
 复制环境变量模板并保持默认的本机绑定：

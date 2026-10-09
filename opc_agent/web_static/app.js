@@ -595,7 +595,7 @@ async function loadExample() {
   elements.formHint.textContent = `正在载入${exampleLabel}示例...`;
   try {
     const data = await requestJson(
-      `/api/examples?task=${encodeURIComponent(exampleTask)}`,
+      `api/examples?task=${encodeURIComponent(exampleTask)}`,
     );
     if (state.task === "auto") {
       setSourceMode("paste");
@@ -658,7 +658,7 @@ async function runAgent(event) {
 
   try {
     setProcessStep("route");
-    const data = await requestJson("/api/run", {
+    const data = await requestJson("api/run", {
       method: "POST",
       body: formData,
     });
@@ -691,7 +691,7 @@ async function runAgent(event) {
 
 async function checkHealth() {
   try {
-    const data = await requestJson("/api/health");
+    const data = await requestJson("api/health");
     if (Number.isFinite(Number(data.max_upload_bytes))) {
       state.maxUploadBytes = Number(data.max_upload_bytes);
     }

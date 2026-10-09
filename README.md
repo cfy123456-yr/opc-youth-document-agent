@@ -13,7 +13,7 @@
 
 - 四条本地工作流和任务路由已经实现。
 - 本地 Web 工作台已经实现，可粘贴文本或上传文件并下载结果。
-- 42 项单元测试通过。
+- 50 项单元测试通过。
 - 12/12 条离线路由与关键词评测通过。
 - 已建立 20 份公开许可与合成回归集，四类各 5 份；当前自动回归 20/20 通过。
 - 已建立真实样本清单、人工基线模板和批量评测入口。
@@ -218,6 +218,21 @@ pwsh -NoProfile -File .\scripts\Start-Public-Tunnel.ps1 -Stop
 ```powershell
 .\scripts\Test-Deployment.ps1
 ```
+
+PythonAnywhere 可以使用仓库内的 WSGI 入口部署。入口会保留现有根路径应用，并把
+本项目挂载到 `/youth/`：
+
+```text
+https://<username>.pythonanywhere.com/youth/
+```
+
+部署文件：
+
+- `deploy/pythonanywhere_wsgi.py`
+- `opc_agent/wsgi.py`
+
+该模式使用 Python 3.13 标准库运行，不要求额外安装项目依赖。公网演示会强制使用
+`mock` 本地规则，并启用限流、并发限制和结果自动清理。
 
 完整流程、云服务器端口和 Caddy 配置见 `docs/deployment.md`。公网演示层仍不提供
 登录、权限、正式配额、文件加密和审计，因此不得接收真实用户文档。

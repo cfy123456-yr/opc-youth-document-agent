@@ -70,6 +70,7 @@ class WebApp:
     max_runs_per_window: int = 0
     rate_limit_window_seconds: int = DEFAULT_RATE_LIMIT_WINDOW_SECONDS
     max_concurrent_runs: int = DEFAULT_MAX_CONCURRENT_RUNS
+    url_prefix: str = ""
     openai_api_key: str = field(default="", repr=False)
     _download_secret: bytes = field(
         default_factory=lambda: secrets.token_bytes(32),
@@ -99,6 +100,11 @@ class WebApp:
         )
         self.retention_seconds = max(0, int(self.retention_seconds))
         self.max_runs_per_window = max(0, int(self.max_runs_per_window))
+        self.url_prefix = self.url_prefix.strip().rstrip("/")
+        if self.url_prefix == "/":
+            self.url_prefix = ""
+        elif self.url_prefix and not self.url_prefix.startswith("/"):
+            self.url_prefix = f"/{self.url_prefix}"
         if self.public_demo:
             if self.provider_name != "mock":
                 raise ValueError("公网演示模式只允许使用 mock 本地规则。")
@@ -211,7 +217,8 @@ class WebApp:
     def download_url(self, path: str | Path) -> str:
         relative = Path(path).resolve().relative_to(self.output_dir.resolve())
         token = self._create_download_token(relative)
-        return f"/api/download?token={urllib.parse.quote(token)}"
+        prefix = self.url_prefix
+        return f"{prefix}/api/download?token={urllib.parse.quote(token)}"
 
     def resolve_download(self, token: str) -> Path:
         relative_path = self._verify_download_token(token)
