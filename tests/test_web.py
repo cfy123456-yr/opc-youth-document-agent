@@ -149,7 +149,7 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(health["provider"], "online")
         self.assertEqual(health["model"], "")
 
-        with self.assertRaisesRegex(ValueError, "确认公网 AI"):
+        with self.assertRaisesRegex(ValueError, "确认隐私安全提示"):
             app.run_payload(
                 {
                     "task": "letter",
@@ -265,6 +265,19 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(example["task"], "resume")
         self.assertTrue(example["content"])
         self.assertTrue(example["goal"])
+
+    def test_public_copy_keeps_privacy_notice_provider_neutral(self):
+        status, _, page = self.request("/")
+        self.assertEqual(status, 200)
+        status, _, script = self.request("/app.js")
+        self.assertEqual(status, 200)
+
+        public_copy = page.decode("utf-8") + script.decode("utf-8")
+        self.assertNotIn("第三方 AI", public_copy)
+        self.assertNotIn("AI API", public_copy)
+        self.assertNotIn("第三方", public_copy)
+        self.assertIn("提交前隐私安全提示", public_copy)
+        self.assertIn("请勿提交敏感信息", public_copy)
 
     def test_run_and_download(self):
         boundary = "----opc-http-boundary"

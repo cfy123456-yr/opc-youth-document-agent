@@ -567,7 +567,7 @@ function renderResult(data) {
     Number(decision.confidence || 0) * 100,
   )}%`;
   elements.metaProvider.textContent =
-    data.provider === "mock" ? "本地规则" : "第三方 AI 服务";
+    data.provider === "mock" ? "本地规则" : "在线处理";
 
   const warnings = result.warnings || [];
   elements.warningsBlock.hidden = !warnings.length;
@@ -658,7 +658,7 @@ async function runAgent(event) {
     return;
   }
   if (state.requiresConsent && !elements.consentCheckbox.checked) {
-    showFormError("请先确认在线 AI 数据使用提示。");
+    showFormError("请先阅读并确认隐私安全提示。");
     elements.consentCheckbox.focus();
     return;
   }
@@ -736,7 +736,7 @@ async function checkHealth() {
     elements.aiConsent.hidden = !state.requiresConsent;
 
     elements.aiConsentCopy.textContent = state.requiresConsent
-      ? "提交后，文书正文会发送到第三方 AI 服务处理，用于生成校样建议。"
+      ? "请先确认文书已经脱敏；提交后正文会离开本站处理。"
       : "";
 
     if (data.public_demo) {
@@ -759,13 +759,14 @@ async function checkHealth() {
           ? `限额：${quotaParts.join("，")}。`
           : "在线调用受额度限制。";
         elements.demoNotice.textContent =
-          `正文会发送到第三方 AI API，禁止提交敏感信息，每次提交均需确认。` +
+          `请勿提交身份证件、联系方式、财务、医疗、未公开合同等敏感信息；` +
+          `每次提交均需确认。` +
           `${quotaText}本站生成结果约 ${retentionMinutes} 分钟后自动删除。`;
         elements.providerStatus.textContent =
-          "公网在线 · 第三方 AI 服务";
-        elements.privacyNoteTitle.textContent = "第三方 AI 处理";
+          "公网在线 · 请勿提交敏感信息";
+        elements.privacyNoteTitle.textContent = "提交前请脱敏";
         elements.privacyNoteCopy.textContent =
-          "本次提交会把正文发送给在线模型 API。结果写入";
+          "请勿提交身份证件、联系方式或未公开合同。结果写入";
       } else {
         elements.demoNotice.textContent =
           `请勿上传真实证件、合同、简历或票据。` +
@@ -778,7 +779,7 @@ async function checkHealth() {
     } else {
       elements.providerStatus.textContent =
         data.provider !== "mock"
-          ? "在线模型 · 第三方 AI 服务"
+          ? "在线处理 · 请勿提交敏感信息"
           : "本地规则 · 无需 API Key";
     }
     updateRunAvailability();

@@ -36,7 +36,8 @@
         <p>
           <strong>公开演示环境</strong>
           <span id="demo-notice">
-            请勿上传真实证件、合同、简历或票据。
+            请勿提交身份证件、联系方式、财务、医疗、未公开合同等敏感信息；
+            每次提交均需确认。
           </span>
         </p>
       </aside>
@@ -117,8 +118,10 @@
               <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"></path>
             </svg>
             <p>
-              <strong id="privacy-note-title">本地优先</strong>
-              <span id="privacy-note-copy">默认由本地规则处理，不上传云端。结果写入</span>
+              <strong id="privacy-note-title">提交前请脱敏</strong>
+              <span id="privacy-note-copy">
+                请勿提交身份证件、联系方式或未公开合同。结果写入
+              </span>
               <code>outputs/web</code>。
             </p>
           </div>
@@ -233,22 +236,21 @@
                     <path d="M12 9v5M12 17h.01"></path>
                   </svg>
                   <div>
-                    <strong id="ai-consent-title">公网在线 AI 数据提示</strong>
+                    <strong id="ai-consent-title">提交前隐私安全提示</strong>
                     <p id="ai-consent-copy">
-                      提交后，文书正文会发送到第三方 AI 服务处理，
-                      用于生成校样建议。
+                      请先确认文书已经脱敏，并了解提交后正文会离开本站处理。
                     </p>
                   </div>
                 </div>
                 <ul>
-                  <li>不要提交身份证件、联系方式、医疗、财务、未公开合同等敏感信息；使用前请先脱敏。</li>
-                  <li>正文会离开本站并交由第三方 AI 服务处理，其保存和处理方式受该服务商条款约束。</li>
-                  <li>本站只保留生成结果约 1 小时，但第三方处理期间的数据留存无法由本站控制。</li>
-                  <li>在线调用会消耗共享额度；AI 结果可能不准确，合同和票据仍须回到原文件人工复核。</li>
+                  <li>不要提交身份证件、联系方式、医疗、财务、未公开合同等敏感信息。</li>
+                  <li>请先删除或替换姓名、电话、地址、证件号码、账号等可识别信息。</li>
+                  <li>请确认你有权处理这份文书，并自行承担提交可能带来的隐私风险。</li>
+                  <li>每次提交都会消耗共享额度；结果可能不准确，合同和票据仍须回到原文件人工复核。</li>
                 </ul>
                 <label class="consent-check" for="consent-checkbox">
                   <input id="consent-checkbox" type="checkbox">
-                  <span>我已脱敏并确认内容不包含敏感个人信息，同意本次发送给第三方 AI 服务处理。</span>
+                  <span>我已确认内容已经脱敏且不包含敏感个人信息。</span>
                 </label>
               </section>
 

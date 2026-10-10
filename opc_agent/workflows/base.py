@@ -8,8 +8,8 @@ from opc_agent.providers.base import ModelProvider, ProviderError, extract_json
 
 
 PROVIDER_MAINTENANCE_MESSAGE = (
-    "后台 AI 服务正在维护，已使用本地规则完成处理，"
-    "请稍后再试在线 AI 功能。"
+    "后台在线服务正在维护，已使用本地规则完成处理，"
+    "请稍后再试在线功能。"
 )
 
 

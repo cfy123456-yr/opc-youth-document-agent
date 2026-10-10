@@ -40,7 +40,7 @@ class DeepSeekProvider(ModelProvider):
 
     def complete(self, system_prompt: str, user_prompt: str) -> str | None:
         if not self.available:
-            raise ProviderError("第三方 AI 服务未配置。")
+            raise ProviderError("在线服务未配置。")
 
         payload: dict[str, object] = {
             "model": self.model,
@@ -74,26 +74,26 @@ class DeepSeekProvider(ModelProvider):
         except urllib.error.HTTPError as exc:
             detail = self._safe_error_detail(exc)
             raise ProviderError(
-                f"第三方 AI 接口调用失败：HTTP {exc.code} {detail}"
+                f"在线服务调用失败：HTTP {exc.code} {detail}"
             ) from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise ProviderError(
-                f"第三方 AI 接口连接失败：{type(exc).__name__}"
+                f"在线服务连接失败：{type(exc).__name__}"
             ) from exc
 
         try:
             data = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise ProviderError("第三方 AI 接口返回了无法解析的数据。") from exc
+            raise ProviderError("在线服务返回了无法解析的数据。") from exc
 
         choices = data.get("choices")
         if not isinstance(choices, list) or not choices:
-            raise ProviderError("第三方 AI 接口没有返回候选结果。")
+            raise ProviderError("在线服务没有返回候选结果。")
         message = choices[0].get("message") if isinstance(choices[0], dict) else None
         content = message.get("content") if isinstance(message, dict) else None
         if isinstance(content, str) and content.strip():
             return content
-        raise ProviderError("第三方 AI 接口没有返回文本内容。")
+        raise ProviderError("在线服务没有返回文本内容。")
 
     def _endpoint(self) -> str:
         if self.base_url.endswith("/chat/completions"):

@@ -211,7 +211,7 @@ class WebApp:
             and self.provider_name != "mock"
             and fields.get("consent") != "accepted"
         ):
-            raise ValueError("请先阅读并确认公网 AI 数据使用提示。")
+            raise ValueError("请先阅读并确认隐私安全提示。")
         if self.max_input_chars > 0 and len(content) > self.max_input_chars:
             raise ValueError(
                 f"文书内容过长，当前上限为 {self.max_input_chars} 字符。"
