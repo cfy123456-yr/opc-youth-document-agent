@@ -101,14 +101,7 @@ class WSGIApplication:
         self.app.cleanup_expired_outputs()
         if path == "/api/health":
             return _json_response(
-                {
-                    "ok": True,
-                    "provider": self.app.provider_name,
-                    "model": self.app.model,
-                    "public_demo": self.app.public_demo,
-                    "retention_seconds": self.app.retention_seconds,
-                    "max_upload_bytes": self.app.max_upload_bytes,
-                },
+                self.app.health_payload(),
                 HTTPStatus.OK,
                 start_response,
                 head=head,
@@ -143,13 +136,22 @@ class WSGIApplication:
 
         self.app.cleanup_expired_outputs()
         client_ip = _client_ip(environ)
-        allowed, retry_after = self.app.allow_run(client_ip)
-        if not allowed:
+        decision = self.app.allow_run(client_ip)
+        if not decision.allowed:
             return _json_response(
-                {"error": "演示环境请求过于频繁，请稍后再试。"},
+                {
+                    "error": (
+                        decision.message
+                        or "公开演示请求过于频繁，请稍后再试。"
+                    )
+                },
                 HTTPStatus.TOO_MANY_REQUESTS,
                 start_response,
-                headers={"Retry-After": str(retry_after)},
+                headers=(
+                    {"Retry-After": str(decision.retry_after)}
+                    if decision.retry_after
+                    else None
+                ),
             )
 
         content_length_raw = str(environ.get("CONTENT_LENGTH") or "").strip()
@@ -229,10 +231,17 @@ def create_application(
     provider_name: str | None = None,
     model: str | None = None,
     public_demo: bool | None = None,
+    public_allow_model: bool | None = None,
     retention_seconds: int | None = None,
     max_runs_per_window: int | None = None,
+    max_runs_per_day: int | None = None,
+    global_runs_per_day: int | None = None,
     max_concurrent_runs: int | None = None,
     max_upload_bytes: int | None = None,
+    max_input_chars: int | None = None,
+    max_output_tokens: int | None = None,
+    request_timeout_seconds: int | None = None,
+    quota_db_path: str | Path | None = None,
     url_prefix: str = "",
 ) -> WSGIApplication:
     root = Path(project_root).resolve()
@@ -240,6 +249,27 @@ def create_application(
     resolved_public_demo = (
         settings.public_demo if public_demo is None else bool(public_demo)
     )
+    resolved_provider = (
+        provider_name if provider_name is not None else settings.provider
+    )
+    resolved_model = model if model is not None else settings.model
+    resolved_base_url = settings.base_url
+    resolved_api_key = settings.api_key
+    resolved_public_allow_model = (
+        settings.public_allow_model
+        if public_allow_model is None
+        else bool(public_allow_model)
+    )
+    if (
+        resolved_public_demo
+        and provider_name is None
+        and resolved_provider != "mock"
+        and not resolved_public_allow_model
+    ):
+        resolved_provider = "mock"
+        resolved_model = ""
+        resolved_base_url = ""
+        resolved_api_key = ""
     app = WebApp(
         output_dir=(
             Path(output_dir)
@@ -254,9 +284,10 @@ def create_application(
         examples_dir=(
             Path(examples_dir) if examples_dir is not None else root / "examples"
         ),
-        provider_name=provider_name if provider_name is not None else settings.provider,
-        model=model if model is not None else settings.model,
+        provider_name=resolved_provider,
+        model=resolved_model,
         public_demo=resolved_public_demo,
+        public_allow_model=resolved_public_allow_model,
         retention_seconds=(
             retention_seconds
             if retention_seconds is not None
@@ -266,6 +297,16 @@ def create_application(
             max_runs_per_window
             if max_runs_per_window is not None
             else settings.max_runs_per_window
+        ),
+        max_runs_per_day=(
+            max_runs_per_day
+            if max_runs_per_day is not None
+            else settings.max_runs_per_day
+        ),
+        global_runs_per_day=(
+            global_runs_per_day
+            if global_runs_per_day is not None
+            else settings.global_runs_per_day
         ),
         max_concurrent_runs=(
             max_concurrent_runs
@@ -277,8 +318,25 @@ def create_application(
             if max_upload_bytes is not None
             else settings.max_upload_bytes
         ),
+        max_input_chars=(
+            max_input_chars
+            if max_input_chars is not None
+            else settings.max_input_chars
+        ),
+        max_output_tokens=(
+            max_output_tokens
+            if max_output_tokens is not None
+            else settings.max_output_tokens
+        ),
+        request_timeout_seconds=(
+            request_timeout_seconds
+            if request_timeout_seconds is not None
+            else settings.request_timeout_seconds
+        ),
+        quota_db_path=quota_db_path,
         url_prefix=url_prefix,
-        openai_api_key=settings.openai_api_key,
+        base_url=resolved_base_url,
+        api_key=resolved_api_key,
     )
     return WSGIApplication(app, url_prefix=url_prefix)
 
@@ -303,10 +361,9 @@ def _normalize_prefix(value: str) -> str:
 
 
 def _client_ip(environ: WSGIEnviron) -> str:
-    forwarded = str(environ.get("HTTP_X_FORWARDED_FOR") or "").strip()
-    if forwarded:
-        return forwarded.split(",", 1)[0].strip()
-    return str(environ.get("REMOTE_ADDR") or "unknown")
+    # Trust the server-provided peer address. Forwarded headers are
+    # client-controlled unless a trusted reverse proxy overwrites them.
+    return str(environ.get("REMOTE_ADDR") or "unknown").strip() or "unknown"
 
 
 def _json_response(

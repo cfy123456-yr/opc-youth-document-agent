@@ -1,7 +1,9 @@
 import base64
 import os
+import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -9,6 +11,7 @@ from opc_agent.agent import YouthDocumentAgent
 from opc_agent.models import AgentRequest, TaskType
 from opc_agent.parsers import (
     DOCX_IMAGE_ONLY_WARNING,
+    PDF_SCANNED_WARNING,
     ParsedDocument,
     _parse_image,
     _paddle_ocr_engine,
@@ -17,6 +20,33 @@ from opc_agent.parsers import (
 
 
 class AgentTests(unittest.TestCase):
+    def test_docx_uses_standard_library_when_python_docx_is_missing(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "resume.docx"
+            document_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>张三</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>技能</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>Python</w:t></w:r></w:p></w:tc>
+      </w:tr>
+    </w:tbl>
+  </w:body>
+</w:document>
+"""
+            with zipfile.ZipFile(source, "w") as archive:
+                archive.writestr("word/document.xml", document_xml)
+
+            with mock.patch.dict(sys.modules, {"docx": None}):
+                parsed = parse_document(source)
+
+            self.assertEqual(parsed.parser, "docx-xml")
+            self.assertIn("张三", parsed.text)
+            self.assertIn("技能 | Python", parsed.text)
+            self.assertEqual(parsed.warnings, [])
+
     def test_auto_route_and_artifacts(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             agent = YouthDocumentAgent(output_dir=temp_dir)
@@ -126,6 +156,61 @@ class AgentTests(unittest.TestCase):
             self.assertIn("张三", parsed.text)
             self.assertEqual(parsed.parser, "python-docx+paddleocr")
             self.assertEqual(parsed.warnings, [])
+
+    def test_scanned_pdf_uses_ocr_text(self):
+        try:
+            import pypdfium2  # noqa: F401
+            from PIL import Image, ImageDraw
+        except ImportError:
+            self.skipTest("pypdfium2 或 Pillow 未安装")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            image = Image.new("RGB", (640, 240), "white")
+            ImageDraw.Draw(image).text((20, 80), "Resume sample", fill="black")
+            source = root / "scanned.pdf"
+            image.save(source, "PDF")
+
+            with mock.patch(
+                "opc_agent.parsers._parse_image",
+                return_value=ParsedDocument(
+                    text="张三\n求职简历\nPython 项目经历",
+                    source=str(source),
+                    parser="paddleocr",
+                ),
+            ):
+                parsed = parse_document(source)
+
+            self.assertIn("张三", parsed.text)
+            self.assertEqual(parsed.parser, "pypdf+paddleocr")
+            self.assertEqual(parsed.warnings, [])
+
+    def test_scanned_pdf_reports_missing_ocr_dependency(self):
+        try:
+            import pypdfium2  # noqa: F401
+            from PIL import Image
+        except ImportError:
+            self.skipTest("pypdfium2 或 Pillow 未安装")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            image = Image.new("RGB", (640, 240), "white")
+            source = root / "scanned.pdf"
+            image.save(source, "PDF")
+
+            with mock.patch(
+                "opc_agent.parsers._parse_image",
+                side_effect=RuntimeError(
+                    'Image OCR requires: pip install -e ".[ocr]"'
+                ),
+            ):
+                parsed = parse_document(source)
+
+            self.assertIn(PDF_SCANNED_WARNING, parsed.warnings)
+            self.assertIn(
+                'Image OCR requires: pip install -e ".[ocr]"',
+                parsed.warnings,
+            )
 
     def test_paddleocr_modern_result_format(self):
         with tempfile.TemporaryDirectory() as temp_dir:

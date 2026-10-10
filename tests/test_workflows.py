@@ -4,6 +4,19 @@ from pathlib import Path
 
 from opc_agent.agent import YouthDocumentAgent
 from opc_agent.models import AgentRequest, TaskType
+from opc_agent.providers.base import ModelProvider, ProviderError
+from opc_agent.workflows.base import PROVIDER_MAINTENANCE_MESSAGE
+
+
+class FailingProvider(ModelProvider):
+    name = "failing"
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    def complete(self, system_prompt: str, user_prompt: str) -> str | None:
+        raise ProviderError("HTTP 402 Insufficient Balance")
 
 
 class WorkflowTests(unittest.TestCase):
@@ -99,6 +112,25 @@ class WorkflowTests(unittest.TestCase):
         self.assertTrue(
             any("重复" in finding.title for finding in run.result.findings)
         )
+
+    def test_provider_failure_shows_maintenance_without_internal_detail(self):
+        agent = YouthDocumentAgent(
+            provider=FailingProvider(),
+            output_dir=Path(self.temp_dir.name) / "failing-provider",
+        )
+        run = agent.run(
+            AgentRequest(
+                task=TaskType.LETTER,
+                content="尊敬的老师：我想申请助学金，我会认真学习。谢谢老师。",
+            )
+        )
+
+        self.assertEqual(
+            run.result.warnings,
+            [PROVIDER_MAINTENANCE_MESSAGE],
+        )
+        self.assertNotIn("402", run.result.warnings[0])
+        self.assertNotIn("Insufficient Balance", run.result.warnings[0])
 
 
 if __name__ == "__main__":

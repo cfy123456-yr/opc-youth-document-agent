@@ -91,9 +91,11 @@ class WebAppTests(unittest.TestCase):
         token = urllib.parse.parse_qs(
             urllib.parse.urlsplit(payload["report_url"]).query
         )["token"][0]
-        replacement = "A" if token[-1] != "A" else "B"
+        encoded, signature = token.split(".", 1)
+        replacement = "A" if signature[0] != "A" else "B"
+        tampered = f"{encoded}.{replacement}{signature[1:]}"
         with self.assertRaises(ValueError):
-            self.app.resolve_download(token[:-1] + replacement)
+            self.app.resolve_download(tampered)
 
     def test_public_demo_defaults_and_provider_guard(self):
         public_app = WebApp(
@@ -106,14 +108,85 @@ class WebAppTests(unittest.TestCase):
         )
         self.assertEqual(public_app.retention_seconds, 3600)
         self.assertEqual(public_app.max_runs_per_window, 12)
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "OPC_PUBLIC_ALLOW_MODEL"):
             WebApp(
                 output_dir=Path(self.temp_dir.name) / "bad-outputs",
                 static_dir=public_app.static_dir,
                 examples_dir=public_app.examples_dir,
-                provider_name="openai",
+                provider_name="deepseek",
                 public_demo=True,
             )
+        with self.assertRaisesRegex(ValueError, "API Key"):
+            WebApp(
+                output_dir=Path(self.temp_dir.name) / "missing-key-outputs",
+                static_dir=public_app.static_dir,
+                examples_dir=public_app.examples_dir,
+                provider_name="deepseek",
+                public_demo=True,
+                public_allow_model=True,
+            )
+
+    def test_public_online_model_defaults_are_restricted(self):
+        app = WebApp(
+            output_dir=Path(self.temp_dir.name) / "online-outputs",
+            static_dir=Path(__file__).resolve().parents[1]
+            / "opc_agent"
+            / "web_static",
+            examples_dir=Path(__file__).resolve().parents[1] / "examples",
+            provider_name="deepseek",
+            model="deepseek-chat",
+            api_key="test-key",
+            public_demo=True,
+            public_allow_model=True,
+        )
+
+        self.assertEqual(app.max_runs_per_day, 6)
+        self.assertEqual(app.global_runs_per_day, 30)
+        self.assertEqual(app.max_input_chars, 20000)
+        self.assertEqual(app.max_output_tokens, 1600)
+        health = app.health_payload()
+        self.assertTrue(health["online_model"])
+        self.assertEqual(health["provider"], "online")
+        self.assertEqual(health["model"], "")
+
+        with self.assertRaisesRegex(ValueError, "确认公网 AI"):
+            app.run_payload(
+                {
+                    "task": "letter",
+                    "content": "尊敬的老师：我想申请助学金。",
+                },
+                {},
+            )
+
+    def test_input_length_limit_is_enforced(self):
+        app = WebApp(
+            output_dir=Path(self.temp_dir.name) / "limited-outputs",
+            static_dir=self.app.static_dir,
+            examples_dir=self.app.examples_dir,
+            max_input_chars=5,
+        )
+
+        with self.assertRaisesRegex(ValueError, "当前上限为 5 字符"):
+            app.run_payload(
+                {"task": "letter", "content": "123456"},
+                {},
+            )
+
+    def test_web_can_build_openai_compatible_agent(self):
+        app = WebApp(
+            output_dir=Path(self.temp_dir.name) / "model-outputs",
+            static_dir=self.app.static_dir,
+            examples_dir=self.app.examples_dir,
+            provider_name="openai-compatible",
+            model="model-name",
+            base_url="https://example.test/v1",
+            api_key="secret",
+        )
+
+        self.assertEqual(
+            app.build_agent().provider.name,
+            "openai-compatible",
+        )
 
     def test_cleanup_expired_outputs(self):
         run_dir = self.app.output_dir / "old-run"

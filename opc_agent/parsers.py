@@ -3,7 +3,9 @@ from __future__ import annotations
 import inspect
 import json
 import os
+import sys
 import zipfile
+import xml.etree.ElementTree as ET
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -14,7 +16,13 @@ from tempfile import TemporaryDirectory
 DOCX_IMAGE_ONLY_WARNING = (
     "DOCX 没有可提取的文本层，正文可能是图片，需要 OCR。"
 )
+PDF_SCANNED_WARNING = "PDF 文本层为空，可能是扫描件，需要 OCR。"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
+PDF_TEXT_MIN_CHARS = 20
+PDF_OCR_MAX_PAGES = 20
+WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+WORD_TAG = f"{{{WORD_NAMESPACE}}}"
+VENDOR_DIR = Path(__file__).resolve().parent.parent / "vendor"
 
 
 @dataclass(slots=True)
@@ -87,10 +95,8 @@ def _try_markitdown(path: Path) -> ParsedDocument | None:
 def _parse_docx(path: Path) -> ParsedDocument:
     try:
         from docx import Document
-    except ImportError as exc:
-        raise RuntimeError(
-            'DOCX parsing requires: pip install -e ".[documents]"'
-        ) from exc
+    except ImportError:
+        return _parse_docx_xml(path)
 
     document = Document(str(path))
     paragraphs = [paragraph.text for paragraph in document.paragraphs]
@@ -114,6 +120,78 @@ def _parse_docx(path: Path) -> ParsedDocument:
         parser=parser,
         warnings=warnings,
     )
+
+
+def _parse_docx_xml(path: Path) -> ParsedDocument:
+    try:
+        with zipfile.ZipFile(path) as archive:
+            document_xml = archive.read("word/document.xml")
+    except (KeyError, OSError, zipfile.BadZipFile) as exc:
+        raise RuntimeError("DOCX 文件结构无效，无法读取正文。") from exc
+
+    try:
+        root = ET.fromstring(document_xml)
+    except ET.ParseError as exc:
+        raise RuntimeError("DOCX 正文 XML 无效，无法读取正文。") from exc
+
+    body = root.find(f"{WORD_TAG}body")
+    if body is None:
+        raise RuntimeError("DOCX 缺少正文节点，无法读取正文。")
+
+    paragraphs = _extract_docx_body_text(body)
+    text = "\n".join(paragraphs)
+    parser = "docx-xml"
+    warnings: list[str] = []
+    if not text.strip():
+        if _docx_contains_media(path):
+            text, ocr_warnings = _ocr_docx_media(path)
+            warnings.extend(ocr_warnings)
+            if text.strip():
+                parser = "docx-xml+paddleocr"
+        else:
+            warnings.append("DOCX 没有可提取的文本。")
+    return ParsedDocument(
+        text=text,
+        source=str(path),
+        parser=parser,
+        warnings=warnings,
+    )
+
+
+def _extract_docx_body_text(body: ET.Element) -> list[str]:
+    paragraphs: list[str] = []
+    for child in body:
+        if child.tag == f"{WORD_TAG}p":
+            text = _extract_docx_paragraph_text(child)
+            if text:
+                paragraphs.append(text)
+            continue
+        if child.tag != f"{WORD_TAG}tbl":
+            continue
+        for row in child.findall(f"{WORD_TAG}tr"):
+            cells: list[str] = []
+            for cell in row.findall(f"{WORD_TAG}tc"):
+                cell_text = "\n".join(
+                    text
+                    for paragraph in cell.findall(f"{WORD_TAG}p")
+                    if (text := _extract_docx_paragraph_text(paragraph))
+                )
+                cells.append(cell_text)
+            if any(cells):
+                paragraphs.append(" | ".join(cells))
+    return paragraphs
+
+
+def _extract_docx_paragraph_text(paragraph: ET.Element) -> str:
+    parts: list[str] = []
+    for node in paragraph.iter():
+        if node.tag == f"{WORD_TAG}t" and node.text:
+            parts.append(node.text)
+        elif node.tag == f"{WORD_TAG}tab":
+            parts.append("\t")
+        elif node.tag in {f"{WORD_TAG}br", f"{WORD_TAG}cr"}:
+            parts.append("\n")
+    return "".join(parts).strip()
 
 
 def _docx_contains_media(path: Path) -> bool:
@@ -166,24 +244,93 @@ def _extract_docx_media(path: Path, target_dir: Path) -> list[Path]:
 
 
 def _parse_pdf(path: Path) -> ParsedDocument:
-    try:
-        from pypdf import PdfReader
-    except ImportError as exc:
-        raise RuntimeError(
-            'PDF parsing requires: pip install -e ".[documents]"'
-        ) from exc
+    PdfReader = _load_pdf_reader()
 
     reader = PdfReader(str(path))
     text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    parser = "pypdf"
     warnings: list[str] = []
-    if len(text.strip()) < 20:
-        warnings.append("PDF 文本层为空，可能是扫描件，需要 OCR。")
+    if len(text.strip()) < PDF_TEXT_MIN_CHARS:
+        try:
+            ocr_text, ocr_warnings = _ocr_pdf_pages(path)
+        except RuntimeError as exc:
+            warnings.extend([PDF_SCANNED_WARNING, str(exc)])
+        else:
+            if ocr_text.strip():
+                text = ocr_text
+                parser = "pypdf+paddleocr"
+                warnings.extend(ocr_warnings)
+            else:
+                warnings.extend(
+                    [PDF_SCANNED_WARNING, *ocr_warnings, "OCR 没有识别到文本。"]
+                )
     return ParsedDocument(
         text=text,
         source=str(path),
-        parser="pypdf",
+        parser=parser,
         warnings=warnings,
     )
+
+
+def _load_pdf_reader():
+    try:
+        from pypdf import PdfReader
+
+        return PdfReader
+    except ImportError:
+        pass
+
+    for wheel_path in sorted(VENDOR_DIR.glob("pypdf-*.whl")):
+        path_string = str(wheel_path)
+        if path_string not in sys.path:
+            sys.path.insert(0, path_string)
+        try:
+            from pypdf import PdfReader
+
+            return PdfReader
+        except ImportError:
+            continue
+    raise RuntimeError(
+        'PDF parsing requires: pip install -e ".[documents]"'
+    )
+
+
+def _ocr_pdf_pages(path: Path) -> tuple[str, list[str]]:
+    try:
+        import pypdfium2 as pdfium
+    except ImportError as exc:
+        raise RuntimeError(
+            'Scanned PDF OCR requires: pip install -e ".[ocr]"'
+        ) from exc
+
+    document = pdfium.PdfDocument(str(path))
+    page_count = len(document)
+    pages_to_scan = min(page_count, PDF_OCR_MAX_PAGES)
+    recognized: list[str] = []
+    warnings: list[str] = []
+    try:
+        with TemporaryDirectory(prefix="opc-pdf-ocr-") as temp_dir:
+            target_dir = Path(temp_dir)
+            for page_index in range(pages_to_scan):
+                page = document[page_index]
+                try:
+                    image = page.render(scale=2).to_pil()
+                    image_path = target_dir / f"page-{page_index + 1}.png"
+                    image.save(image_path, format="PNG")
+                finally:
+                    page.close()
+
+                result = _parse_image(image_path)
+                if result.text.strip():
+                    recognized.append(result.text.strip())
+    finally:
+        document.close()
+
+    if page_count > pages_to_scan:
+        warnings.append(
+            f"PDF 共 {page_count} 页，仅 OCR 前 {pages_to_scan} 页。"
+        )
+    return "\n\n".join(recognized), warnings
 
 
 def _parse_image(path: Path) -> ParsedDocument:

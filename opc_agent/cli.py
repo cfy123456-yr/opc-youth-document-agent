@@ -12,8 +12,8 @@ from opc_agent.evals import run_eval_dataset
 from opc_agent.models import AgentRequest, TaskType, to_serializable
 from opc_agent.providers import (
     MockProvider,
-    OpenAIResponsesProvider,
     ProviderError,
+    create_provider,
 )
 from opc_agent.router import route_task
 from opc_agent.sample_evals import (
@@ -53,10 +53,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--goal-file", default="", help="目标岗位或目标说明文件。")
     run.add_argument(
         "--provider",
-        choices=("mock", "openai"),
+        choices=("mock", "openai", "openai-compatible"),
         default=settings.provider,
     )
     run.add_argument("--model", default=settings.model)
+    run.add_argument("--base-url", default=settings.base_url)
     run.add_argument(
         "--output-dir",
         default=settings.output_dir,
@@ -136,11 +137,13 @@ def command_doctor(args: argparse.Namespace) -> int:
     checks = {
         "python": sys.version.split()[0],
         "provider": settings.provider,
-        "openai_api_key": settings.has_openai_api_key,
+        "api_key": settings.has_api_key,
+        "base_url": settings.base_url,
         "openai_package": _module_available("openai"),
         "markitdown": _module_available("markitdown"),
         "python_docx": _module_available("docx"),
         "pypdf": _module_available("pypdf"),
+        "pypdfium2": _module_available("pypdfium2"),
         "paddleocr": _module_available("paddleocr"),
     }
     for key, value in checks.items():
@@ -293,12 +296,12 @@ def command_samples_eval(args: argparse.Namespace) -> int:
 
 
 def _build_provider(args: argparse.Namespace):
-    if args.provider == "mock":
-        return MockProvider()
     settings = Settings.from_env()
-    return OpenAIResponsesProvider(
+    return create_provider(
+        provider_name=args.provider,
         model=args.model,
-        api_key=settings.openai_api_key,
+        api_key=settings.api_key,
+        base_url=args.base_url,
     )
 
 

@@ -53,7 +53,7 @@ Git 空白字符。安装 Ruff 后会自动追加静态检查；未安装时只�
 
 ## 启停公网演示
 
-启动强制 `mock` 模式的本地服务：
+启动默认 `mock` 模式的本地公开演示服务；在线模型不会被这个脚本自动开启：
 
 ```powershell
 pwsh -NoProfile -File .\scripts\Start-Public-Demo.ps1

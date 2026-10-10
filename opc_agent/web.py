@@ -32,11 +32,16 @@ from opc_agent.config import (
 from opc_agent.console import configure_stdio
 from opc_agent.models import AgentRequest, TaskType
 from opc_agent.parsers import parse_document
-from opc_agent.providers import MockProvider, OpenAIResponsesProvider, ProviderError
+from opc_agent.providers import ProviderError, create_provider
+from opc_agent.quota import QuotaDecision, UsageQuota
 
 
 DEFAULT_PUBLIC_RETENTION_SECONDS = 3600
 DEFAULT_PUBLIC_RUNS_PER_WINDOW = 12
+DEFAULT_PUBLIC_RUNS_PER_DAY = 6
+DEFAULT_PUBLIC_GLOBAL_RUNS_PER_DAY = 30
+DEFAULT_PUBLIC_MAX_INPUT_CHARS = 20000
+DEFAULT_PUBLIC_MAX_OUTPUT_TOKENS = 1600
 DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 60
 SECURITY_CSP = (
     "default-src 'self'; "
@@ -64,14 +69,22 @@ class WebApp:
     examples_dir: Path
     provider_name: str = "mock"
     model: str = ""
+    base_url: str = ""
     max_upload_bytes: int = DEFAULT_MAX_UPLOAD_BYTES
     public_demo: bool = False
+    public_allow_model: bool = False
     retention_seconds: int = 0
     max_runs_per_window: int = 0
+    max_runs_per_day: int = 0
+    global_runs_per_day: int = 0
     rate_limit_window_seconds: int = DEFAULT_RATE_LIMIT_WINDOW_SECONDS
     max_concurrent_runs: int = DEFAULT_MAX_CONCURRENT_RUNS
+    max_input_chars: int = 0
+    max_output_tokens: int = 0
+    request_timeout_seconds: int = 45
+    quota_db_path: Path | None = None
     url_prefix: str = ""
-    openai_api_key: str = field(default="", repr=False)
+    api_key: str = field(default="", repr=False)
     _download_secret: bytes = field(
         default_factory=lambda: secrets.token_bytes(32),
         init=False,
@@ -88,6 +101,7 @@ class WebApp:
         init=False,
         repr=False,
     )
+    _quota: UsageQuota | None = field(default=None, init=False, repr=False)
     _last_cleanup: float = field(default=0.0, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -100,6 +114,14 @@ class WebApp:
         )
         self.retention_seconds = max(0, int(self.retention_seconds))
         self.max_runs_per_window = max(0, int(self.max_runs_per_window))
+        self.max_runs_per_day = max(0, int(self.max_runs_per_day))
+        self.global_runs_per_day = max(0, int(self.global_runs_per_day))
+        self.max_input_chars = max(0, int(self.max_input_chars))
+        self.max_output_tokens = max(0, int(self.max_output_tokens))
+        self.request_timeout_seconds = max(
+            5,
+            int(self.request_timeout_seconds),
+        )
         self.url_prefix = self.url_prefix.strip().rstrip("/")
         if self.url_prefix == "/":
             self.url_prefix = ""
@@ -107,22 +129,50 @@ class WebApp:
             self.url_prefix = f"/{self.url_prefix}"
         if self.public_demo:
             if self.provider_name != "mock":
-                raise ValueError("公网演示模式只允许使用 mock 本地规则。")
+                if not self.public_allow_model:
+                    raise ValueError(
+                        "公网在线模型未显式启用，请设置 "
+                        "OPC_PUBLIC_ALLOW_MODEL=true。"
+                    )
+                if not self.api_key.strip():
+                    raise ValueError("公网在线模型缺少 API Key。")
             if self.retention_seconds == 0:
                 self.retention_seconds = DEFAULT_PUBLIC_RETENTION_SECONDS
             if self.max_runs_per_window == 0:
                 self.max_runs_per_window = DEFAULT_PUBLIC_RUNS_PER_WINDOW
+            if (
+                self.provider_name != "mock"
+                and self.max_runs_per_day == 0
+            ):
+                self.max_runs_per_day = DEFAULT_PUBLIC_RUNS_PER_DAY
+            if (
+                self.provider_name != "mock"
+                and self.global_runs_per_day == 0
+            ):
+                self.global_runs_per_day = DEFAULT_PUBLIC_GLOBAL_RUNS_PER_DAY
+            if self.provider_name != "mock" and self.max_input_chars == 0:
+                self.max_input_chars = DEFAULT_PUBLIC_MAX_INPUT_CHARS
+            if self.provider_name != "mock" and self.max_output_tokens == 0:
+                self.max_output_tokens = DEFAULT_PUBLIC_MAX_OUTPUT_TOKENS
+        if self.max_runs_per_day > 0 or self.global_runs_per_day > 0:
+            self._quota = UsageQuota(
+                self.quota_db_path or self.output_dir / "usage.sqlite3",
+                per_ip_limit=self.max_runs_per_day,
+                global_limit=self.global_runs_per_day,
+            )
         self._run_slots = threading.BoundedSemaphore(
             self.max_concurrent_runs
         )
 
     def build_agent(self) -> YouthDocumentAgent:
-        provider = MockProvider()
-        if self.provider_name == "openai":
-            provider = OpenAIResponsesProvider(
-                model=self.model,
-                api_key=self.openai_api_key,
-            )
+        provider = create_provider(
+            provider_name=self.provider_name,
+            model=self.model,
+            api_key=self.api_key,
+            base_url=self.base_url,
+            max_tokens=self.max_output_tokens,
+            timeout_seconds=self.request_timeout_seconds,
+        )
         return YouthDocumentAgent(
             provider=provider,
             output_dir=self.output_dir,
@@ -156,6 +206,16 @@ class WebApp:
 
         if not content:
             raise ValueError("请粘贴内容或选择一份文件。")
+        if (
+            self.public_demo
+            and self.provider_name != "mock"
+            and fields.get("consent") != "accepted"
+        ):
+            raise ValueError("请先阅读并确认公网 AI 数据使用提示。")
+        if self.max_input_chars > 0 and len(content) > self.max_input_chars:
+            raise ValueError(
+                f"文书内容过长，当前上限为 {self.max_input_chars} 字符。"
+            )
 
         agent = self.build_agent()
         run = agent.run(
@@ -232,9 +292,11 @@ class WebApp:
             raise FileNotFoundError("下载文件不存在。")
         return candidate
 
-    def allow_run(self, client_ip: str) -> tuple[bool, int]:
+    def allow_run(self, client_ip: str) -> QuotaDecision:
         if self.max_runs_per_window <= 0:
-            return True, 0
+            if self._quota is None:
+                return QuotaDecision(True)
+            return self._quota.try_consume(client_ip)
         now = time.monotonic()
         window = self.rate_limit_window_seconds
         with self._state_lock:
@@ -243,11 +305,37 @@ class WebApp:
                 bucket.popleft()
             if len(bucket) >= self.max_runs_per_window:
                 retry_after = max(1, int(window - (now - bucket[0]) + 0.999))
-                return False, retry_after
+                return QuotaDecision(
+                    False,
+                    "公开演示请求过于频繁，请稍后再试。",
+                    retry_after,
+                )
             bucket.append(now)
             if len(self._rate_buckets) > 2048:
                 self._drop_stale_rate_buckets(now)
-            return True, 0
+        if self._quota is not None:
+            return self._quota.try_consume(client_ip)
+        return QuotaDecision(True)
+
+    def health_payload(self) -> dict[str, Any]:
+        online_model = self.provider_name != "mock"
+        public_provider = (
+            "online"
+            if self.public_demo and online_model
+            else self.provider_name
+        )
+        return {
+            "ok": True,
+            "provider": public_provider,
+            "model": "" if self.public_demo and online_model else self.model,
+            "public_demo": self.public_demo,
+            "retention_seconds": self.retention_seconds,
+            "max_upload_bytes": self.max_upload_bytes,
+            "max_input_chars": self.max_input_chars,
+            "max_runs_per_day": self.max_runs_per_day,
+            "global_runs_per_day": self.global_runs_per_day,
+            "online_model": online_model,
+        }
 
     def acquire_run_slot(self) -> bool:
         return self._run_slots.acquire(blocking=False)
@@ -363,16 +451,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         try:
             self.app.cleanup_expired_outputs()
             if parsed.path == "/api/health":
-                self._send_json(
-                    {
-                        "ok": True,
-                        "provider": self.app.provider_name,
-                        "model": self.app.model,
-                        "public_demo": self.app.public_demo,
-                        "retention_seconds": self.app.retention_seconds,
-                        "max_upload_bytes": self.app.max_upload_bytes,
-                    }
-                )
+                self._send_json(self.app.health_payload())
                 return
             if parsed.path == "/api/examples":
                 query = urllib.parse.parse_qs(parsed.query)
@@ -408,12 +487,16 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
 
         self.app.cleanup_expired_outputs()
-        allowed, retry_after = self.app.allow_run(self._client_ip())
-        if not allowed:
+        decision = self.app.allow_run(self._client_ip())
+        if not decision.allowed:
             self._send_error_json(
                 HTTPStatus.TOO_MANY_REQUESTS,
-                "演示环境请求过于频繁，请稍后再试。",
-                headers={"Retry-After": str(retry_after)},
+                decision.message or "公开演示请求过于频繁，请稍后再试。",
+                headers=(
+                    {"Retry-After": str(decision.retry_after)}
+                    if decision.retry_after
+                    else None
+                ),
             )
             return
 
@@ -617,11 +700,16 @@ def create_server(
     examples_dir: str | Path = "examples",
     provider_name: str | None = None,
     model: str | None = None,
+    base_url: str | None = None,
     public_demo: bool = False,
     retention_seconds: int | None = None,
     max_runs_per_window: int | None = None,
+    max_runs_per_day: int | None = None,
+    global_runs_per_day: int | None = None,
     max_concurrent_runs: int | None = None,
     max_upload_bytes: int | None = None,
+    max_input_chars: int | None = None,
+    quota_db_path: str | Path | None = None,
 ) -> AppHTTPServer:
     settings = Settings.from_env()
     package_root = Path(__file__).resolve().parent
@@ -633,7 +721,9 @@ def create_server(
             provider_name if provider_name is not None else settings.provider
         ),
         model=model if model is not None else settings.model,
+        base_url=base_url if base_url is not None else settings.base_url,
         public_demo=public_demo,
+        public_allow_model=settings.public_allow_model,
         retention_seconds=(
             retention_seconds
             if retention_seconds is not None
@@ -643,6 +733,16 @@ def create_server(
             max_runs_per_window
             if max_runs_per_window is not None
             else settings.max_runs_per_window
+        ),
+        max_runs_per_day=(
+            max_runs_per_day
+            if max_runs_per_day is not None
+            else settings.max_runs_per_day
+        ),
+        global_runs_per_day=(
+            global_runs_per_day
+            if global_runs_per_day is not None
+            else settings.global_runs_per_day
         ),
         max_concurrent_runs=(
             max_concurrent_runs
@@ -654,7 +754,15 @@ def create_server(
             if max_upload_bytes is not None
             else settings.max_upload_bytes
         ),
-        openai_api_key=settings.openai_api_key,
+        max_input_chars=(
+            max_input_chars
+            if max_input_chars is not None
+            else settings.max_input_chars
+        ),
+        max_output_tokens=settings.max_output_tokens,
+        request_timeout_seconds=settings.request_timeout_seconds,
+        quota_db_path=quota_db_path,
+        api_key=settings.api_key,
     )
     server = AppHTTPServer((host, port), WebRequestHandler)
     server.app = app
@@ -690,10 +798,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--examples-dir", default="examples")
     parser.add_argument(
         "--provider",
-        choices=("mock", "openai"),
+        choices=("mock", "deepseek", "openai", "openai-compatible"),
         default=settings.provider,
     )
     parser.add_argument("--model", default=settings.model)
+    parser.add_argument("--base-url", default=settings.base_url)
     parser.add_argument(
         "--public-demo",
         action="store_true",
@@ -713,6 +822,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="单个 IP 在限流窗口内的最大运行次数；0 表示不限制。",
     )
     parser.add_argument(
+        "--max-runs-per-day",
+        type=int,
+        default=settings.max_runs_per_day,
+        help="单个 IP 每日最大运行次数；0 表示不限制。",
+    )
+    parser.add_argument(
+        "--global-runs-per-day",
+        type=int,
+        default=settings.global_runs_per_day,
+        help="全站每日最大运行次数；0 表示不限制。",
+    )
+    parser.add_argument(
         "--max-concurrent-runs",
         type=int,
         default=settings.max_concurrent_runs,
@@ -723,6 +844,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=settings.max_upload_mb,
         help="上传正文的文件大小上限，单位 MB。",
+    )
+    parser.add_argument(
+        "--max-input-chars",
+        type=int,
+        default=settings.max_input_chars,
+        help="单次处理的字符上限；0 表示不限制。",
     )
     parser.add_argument(
         "--open",
@@ -743,11 +870,15 @@ def main(argv: list[str] | None = None) -> int:
             examples_dir=args.examples_dir,
             provider_name=args.provider,
             model=args.model,
+            base_url=args.base_url,
             public_demo=args.public_demo,
             retention_seconds=args.output_ttl_seconds,
             max_runs_per_window=args.max_runs_per_window,
+            max_runs_per_day=args.max_runs_per_day,
+            global_runs_per_day=args.global_runs_per_day,
             max_concurrent_runs=args.max_concurrent_runs,
             max_upload_bytes=args.max_upload_mb * 1024 * 1024,
+            max_input_chars=args.max_input_chars,
         )
     except (OSError, ValueError) as exc:
         print(f"无法启动 Web 服务：{exc}", file=sys.stderr)

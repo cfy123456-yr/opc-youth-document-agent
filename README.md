@@ -13,7 +13,7 @@
 
 - 四条本地工作流和任务路由已经实现。
 - 本地 Web 工作台已经实现，可粘贴文本或上传文件并下载结果。
-- 50 项单元测试通过。
+- 68 项单元测试通过。
 - 12/12 条离线路由与关键词评测通过。
 - 已建立 20 份公开许可与合成回归集，四类各 5 份；当前自动回归 20/20 通过。
 - 已建立真实样本清单、人工基线模板和批量评测入口。
@@ -21,8 +21,11 @@
 - 样本评测会单列自动路由验证覆盖率；只有 `task=auto` 才计入路由通过率。
 - 图片版 DOCX 会抽取内嵌图片并尝试 OCR；OCR 不可用时明确提示，不再按空文档继续分析。
 - Docker Compose 已在本机完成镜像构建、容器启动和健康检查；云服务器尚未实跑。
-- 新增公网演示模式：强制本地规则、按 IP 限流、限制并发、签名下载链接和结果自动清理。
-- 默认 `mock` Provider 已验证，OpenAI 在线调用尚未真实验证。
+- 新增公网演示模式：默认使用本地规则；在线模型必须显式开启并配置 Key，同时启
+  用第三方数据确认、按 IP/全站每日额度、按分钟限流、并发限制、签名下载和结果清理。
+- 默认 `mock` Provider 和可选的第三方在线服务已经接入；公网页面只显示
+  “第三方 AI 服务”，不会公开厂商、模型或接口地址。在线调用只用于公开或
+  合成样本验收，不接收真实用户文档。
 - 合同和票据结果必须人工复核，不能直接作为法律或财务结论。
 - 当前没有登录、云端存储、自动提交和正式法律意见能力。
 
@@ -127,7 +130,7 @@ python -m opc_agent.web --port 8765 --open
 
 通过 Web 工作台运行时，结果默认写入 `outputs/web/<时间>-<任务>/`。
 
-## 接入模型
+## 接入第三方 AI 服务
 
 安装可选依赖：
 
@@ -135,19 +138,26 @@ python -m opc_agent.web --port 8765 --open
 pip install -e ".[openai]"
 ```
 
-设置环境变量：
+在项目根目录的 `.env` 中填写第三方服务提供的地址、模型名和密钥，也可以使用
+临时环境变量：
 
 ```powershell
-$env:OPC_PROVIDER = "openai"
-$env:OPC_MODEL = "<your-model>"
-$env:OPENAI_API_KEY = "<your-api-key>"
+$env:OPC_PROVIDER = "openai-compatible"
+$env:OPC_BASE_URL = "<service-chat-completions-url>"
+$env:OPC_MODEL = "<service-model>"
+$env:OPC_API_KEY = "<service-api-key>"
 ```
 
-然后按相同命令运行。当前构建环境无法访问 OpenAI 官方文档站点，因此在线接口适配器保持最薄实现，尚未进行真实模型调用验证。默认的 `mock` 模式不受影响。
+这套配置适用于提供 Chat Completions 兼容接口的第三方服务。具体模型名、接口
+地址和费用以服务商当前文档为准。未配置模型、额度不足或接口调用失败时，工作流
+会回退到本地规则并给出“后台 AI 服务正在维护”一类提示；默认 `mock` 模式不需要
+API Key。CLI 和 Web 会自动读取 `.env`，环境变量优先级更高，该文件已被 Git 忽略。
 
 ## 文档解析
 
-基础模式支持 TXT、Markdown、JSON 和 CSV。
+基础模式支持 TXT、Markdown、JSON 和 CSV。源码目录内附带纯 Python PDF
+解析包，因此 DOCX、带文本层的 PDF 也可直接处理；DOCX 在未安装
+`python-docx` 时会自动使用标准库读取正文和表格。
 
 安装文档解析依赖：
 
@@ -161,8 +171,10 @@ pip install -e ".[documents]"
 pip install -e ".[ocr]"
 ```
 
-解析器优先尝试 MarkItDown，DOCX 回退到 python-docx，PDF 回退到 pypdf，图片使用
-PaddleOCR。图片版 DOCX 也会抽取内嵌图片并尝试 OCR；未安装 OCR 依赖时会明确提示。
+解析器优先尝试 MarkItDown，DOCX 回退到 python-docx 或标准库解析，PDF 使用
+`vendor/` 中随项目提供的 pypdf，图片使用 PaddleOCR。图片版 DOCX 会抽取内嵌
+图片并尝试 OCR；扫描版 PDF 会通过 pypdfium2 渲染页面后尝试 OCR，默认最多处理
+前 20 页。未安装 OCR 依赖时会明确提示。扫描件和图片仍无法在没有 OCR 时提取文字。
 
 ## 测试
 
@@ -219,11 +231,10 @@ pwsh -NoProfile -File .\scripts\Start-Public-Tunnel.ps1 -Stop
 .\scripts\Test-Deployment.ps1
 ```
 
-PythonAnywhere 可以使用仓库内的 WSGI 入口部署。入口会保留现有根路径应用，并把
-本项目挂载到 `/youth/`：
+PythonAnywhere 可以使用仓库内的 WSGI 入口部署为独立根站：
 
 ```text
-https://<username>.pythonanywhere.com/youth/
+https://<username>.pythonanywhere.com/
 ```
 
 部署文件：
@@ -231,11 +242,13 @@ https://<username>.pythonanywhere.com/youth/
 - `deploy/pythonanywhere_wsgi.py`
 - `opc_agent/wsgi.py`
 
-该模式使用 Python 3.13 标准库运行，不要求额外安装项目依赖。公网演示会强制使用
-`mock` 本地规则，并启用限流、并发限制和结果自动清理。
+该模式使用 Python 3.13 标准库运行，不要求额外安装项目依赖。入口从项目私有
+`.env` 读取第三方服务配置；没有配置时使用 `mock` 本地规则。启用在线服务后会
+强制显示第三方数据处理提示，并启用限流、每日额度、并发限制和结果自动清理。
 
-完整流程、云服务器端口和 Caddy 配置见 `docs/deployment.md`。公网演示层仍不提供
-登录、权限、正式配额、文件加密和审计，因此不得接收真实用户文档。
+完整流程、云服务器端口和 Caddy 配置见 `docs/deployment.md`。公网演示层有每日
+共享额度和输入限制，但仍不提供登录、账户级权限、文件加密、正式计费和审计，因此
+不得接收真实用户文档。
 
 ## 使用边界
 

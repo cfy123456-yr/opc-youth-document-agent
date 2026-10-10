@@ -44,7 +44,8 @@ are generated under the project output directory.
 
 - Task types: resume, letter, contract, receipt, and automatic routing.
 - Local rules run in `mock` mode without a model API key.
-- OpenAI Responses is an optional provider and has not been live-verified.
+- A third-party online model service is optional and is only used after explicit
+  configuration.
 - Contract output is risk assistance only and is not legal advice.
 - Receipt totals are calculated from extracted rows and must be checked against the
   original documents.

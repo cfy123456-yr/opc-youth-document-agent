@@ -36,15 +36,22 @@ python -m opc_agent.web `
 
 ```dotenv
 OPC_PUBLIC_DEMO=true
+OPC_PUBLIC_ALLOW_MODEL=false
 OPC_OUTPUT_TTL_SECONDS=3600
 OPC_MAX_RUNS_PER_WINDOW=12
+OPC_MAX_RUNS_PER_DAY=6
+OPC_GLOBAL_RUNS_PER_DAY=30
 OPC_MAX_CONCURRENT_RUNS=2
 OPC_MAX_UPLOAD_MB=15
+OPC_MAX_INPUT_CHARS=20000
+OPC_MAX_OUTPUT_TOKENS=1600
 ```
 
-演示模式会强制使用 `mock` Provider；配置 `openai` 时服务会拒绝启动。下载链接使用
-随机密钥签名，页面和健康接口会明确返回 `public_demo=true`。这些措施用于降低公开
-演示风险，不代表服务已经达到接收真实用户文档的安全等级。
+演示模式默认只允许 `mock` Provider。要启用在线模型，必须同时设置
+`OPC_PUBLIC_ALLOW_MODEL=true`、配置 Provider、模型和 API Key，并在页面勾选
+第三方数据确认；否则服务会拒绝启动或拒绝提交。下载链接使用随机密钥签名，页面
+和健康接口会明确返回 `public_demo=true`。这些措施用于降低公开演示风险，不代表
+服务已经达到接收真实用户文档的安全等级。
 
 本项目已经提供后台 HTTPS 隧道脚本，默认使用 `srv.us`；也可以传入
 `-Provider localhost.run` 或 `-Provider serveo.net` 切换服务商。脚本会为
@@ -85,36 +92,46 @@ HTTPS 隧道；公网首页、健康接口、申请函合成样本提交、报�
 
 PythonAnywhere 适合当前标准库 WSGI 版本。应用入口为
 `deploy/pythonanywhere_wsgi.py`，底层适配器为 `opc_agent/wsgi.py`。部署时把入口
-文件复制到 PythonAnywhere 的 `/var/www/<domain>_wsgi.py`，或把其中的
-`application` 接入现有 WSGI 文件。
+文件复制到 PythonAnywhere 的 `/var/www/<domain>_wsgi.py`，并将项目放到
+`~/opc-youth-document-agent`、运行数据放到 `~/opc-youth-data`。
 
-默认挂载路径是 `/youth/`：
+该入口作为独立根站运行：
 
 ```text
-https://<username>.pythonanywhere.com/youth/
+https://<username>.pythonanywhere.com/
 ```
 
-该入口只接管 `/youth/` 及其子路径，其他路径继续交给原有 WSGI 应用，因此不会覆盖
-同一账号上已经运行的根路径服务。公网演示参数由入口固定为：
+第三方 AI 配置只从项目私有 `.env` 读取，不写入 WSGI 文件、仓库或镜像。公网
+参数由入口固定为：
 
-- `provider=mock`
-- 上传上限 15 MB
-- 单 IP 每分钟 12 次
+- 未配置第三方服务时使用 `mock` 本地规则
+- 上传上限 15 MB，输入上限 20,000 字符，输出上限 1,600 tokens
+- 单 IP 每分钟 12 次、每日 6 次，全站每日 30 次
 - 最多 2 个并发任务
 - 结果保留 1 小时后自动清理
+
+Web 界面会显示第三方数据处理提示，要求用户确认已脱敏；成功提交后确认框会自动
+复位。提交内容会发送到页面所标示的第三方 AI 服务，本站只控制生成结果的保留
+时间，不能控制第三方服务商处理期间的数据留存。健康接口只返回
+`provider=online`，不公开厂商、模型或接口地址。额度不足或在线服务异常时，页面会
+明确提示后台 AI 服务正在维护，并回退到本地规则。不得用该演示链路接收真实证件、
+合同、简历、票据或其他敏感信息。
 
 部署后的检查：
 
 ```text
-GET /youth/
-GET /youth/api/health
-GET /youth/api/examples?task=letter
-POST /youth/api/run
-GET /youth/api/download?token=...
+GET /
+GET /api/health
+GET /api/examples?task=letter
+POST /api/run
+GET /api/download?token=...
 ```
 
-健康接口应返回 `ok=true`、`public_demo=true` 和 `provider=mock`。公开链路只使用
-仓库内合成样本验证，不接收真实证件、合同、简历或票据。
+健康接口应返回 `ok=true`、`public_demo=true` 和
+`provider=online`；公开在线模式下同时返回 `online_model=true`、`model=""`，
+不会暴露具体服务信息。公开链路只使用仓库内合成样本验证，不接收真实证件、合同、
+简历或票据。若第三方服务或公网链路异常，应立即把入口切回 `provider=mock`
+或关闭在线模型后 reload。
 
 ## Docker 本地验证
 
@@ -181,11 +198,17 @@ docker compose down
 ```dotenv
 OPC_PROVIDER=mock
 OPC_MODEL=
+OPC_BASE_URL=
+OPC_API_KEY=
 OPENAI_API_KEY=
 OPC_BIND_ADDRESS=127.0.0.1
 OPC_BIND_PORT=8765
 OPC_SITE_ADDRESS=你的域名
 ```
+
+如果只在受控环境使用在线模型，可将 `OPC_PROVIDER` 改为
+`openai-compatible`，填写服务商提供的 `OPC_BASE_URL`、`OPC_MODEL` 和
+`OPC_API_KEY`。不要把真实密钥写入 Git、镜像或公开演示页面。
 
 先验证 HTTP 应用：
 
@@ -227,6 +250,8 @@ docker compose --profile public up -d
 
 - 只使用公开示例或已授权、已脱敏的文档。
 - `.env`、API Key、真实样本、运行报告和云服务器凭据没有进入 Git 或镜像。
+- 公网入口只允许必要的 Provider，并确认每 IP/全站每日额度、输入上限、超时和
+  结果清理已经生效。
 - 域名、备案、隐私政策、用户授权和数据留存期限已经确定。
 - 日志不会记录上传正文、API Key 或可识别个人信息。
 - 有备份、回滚、监控和文件清理方案。

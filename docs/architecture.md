@@ -18,7 +18,7 @@
 | --- | --- |
 | `models.py` | 任务、结果、发现和输出对象 |
 | `router.py` | 根据文本和文件名识别任务 |
-| `providers/` | 模型调用抽象、Mock 和 OpenAI 适配 |
+| `providers/` | 模型调用抽象、Mock 和第三方在线服务适配 |
 | `parsers.py` | TXT、DOCX、PDF 和图片解析 |
 | `workflows/` | 四类业务的独立规则和提示词 |
 | `artifacts.py` | Markdown、JSON 和 CSV 生成 |

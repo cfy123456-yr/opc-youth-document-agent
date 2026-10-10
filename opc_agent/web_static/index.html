@@ -111,14 +111,14 @@
             </button>
           </nav>
 
-          <div class="local-note">
+          <div class="local-note" id="privacy-note">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <rect x="5" y="10" width="14" height="10" rx="2"></rect>
               <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"></path>
             </svg>
             <p>
-              <strong>本地优先</strong>
-              默认由本地规则处理，不上传云端。结果写入
+              <strong id="privacy-note-title">本地优先</strong>
+              <span id="privacy-note-copy">默认由本地规则处理，不上传云端。结果写入</span>
               <code>outputs/web</code>。
             </p>
           </div>
@@ -185,7 +185,7 @@
                   </svg>
                   <span>
                     <strong>选择一份本地文件</strong>
-                    <small>支持 TXT、Markdown、JSON、CSV；DOCX、PDF 和图片需安装可选解析依赖</small>
+                    <small>支持 TXT、Markdown、JSON、CSV、Word 和文本型 PDF；扫描件与图片需 OCR</small>
                   </span>
                 </label>
                 <input
@@ -220,6 +220,37 @@
                   placeholder="粘贴岗位职责、技能要求或招聘描述。"
                 ></textarea>
               </div>
+
+              <section
+                class="ai-consent"
+                id="ai-consent"
+                aria-labelledby="ai-consent-title"
+                hidden
+              >
+                <div class="ai-consent__heading">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3 3 20h18z"></path>
+                    <path d="M12 9v5M12 17h.01"></path>
+                  </svg>
+                  <div>
+                    <strong id="ai-consent-title">公网在线 AI 数据提示</strong>
+                    <p id="ai-consent-copy">
+                      提交后，文书正文会发送到第三方 AI 服务处理，
+                      用于生成校样建议。
+                    </p>
+                  </div>
+                </div>
+                <ul>
+                  <li>不要提交身份证件、联系方式、医疗、财务、未公开合同等敏感信息；使用前请先脱敏。</li>
+                  <li>正文会离开本站并交由第三方 AI 服务处理，其保存和处理方式受该服务商条款约束。</li>
+                  <li>本站只保留生成结果约 1 小时，但第三方处理期间的数据留存无法由本站控制。</li>
+                  <li>在线调用会消耗共享额度；AI 结果可能不准确，合同和票据仍须回到原文件人工复核。</li>
+                </ul>
+                <label class="consent-check" for="consent-checkbox">
+                  <input id="consent-checkbox" type="checkbox">
+                  <span>我已脱敏并确认内容不包含敏感个人信息，同意本次发送给第三方 AI 服务处理。</span>
+                </label>
+              </section>
 
               <div class="action-bar">
                 <button class="button button--quiet" id="example-button" type="button">

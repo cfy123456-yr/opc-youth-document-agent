@@ -65,6 +65,10 @@ const state = {
   loading: false,
   result: null,
   maxUploadBytes: 15 * 1024 * 1024,
+  maxInputChars: 0,
+  publicDemo: false,
+  onlineModel: false,
+  requiresConsent: false,
 };
 
 const elements = {
@@ -91,6 +95,11 @@ const elements = {
   runtimeBadge: document.querySelector(".runtime-badge"),
   demoBanner: document.querySelector("#demo-banner"),
   demoNotice: document.querySelector("#demo-notice"),
+  aiConsent: document.querySelector("#ai-consent"),
+  aiConsentCopy: document.querySelector("#ai-consent-copy"),
+  consentCheckbox: document.querySelector("#consent-checkbox"),
+  privacyNoteTitle: document.querySelector("#privacy-note-title"),
+  privacyNoteCopy: document.querySelector("#privacy-note-copy"),
   taskTitle: document.querySelector("#current-task-title"),
   taskDescription: document.querySelector("#task-description"),
   routeStamp: document.querySelector("#route-stamp"),
@@ -159,7 +168,16 @@ function setSourceMode(mode) {
 
 function updateCharCount() {
   const count = elements.content.value.trim().length;
-  elements.charCount.textContent = `${count.toLocaleString("zh-CN")} 字符`;
+  const limit = state.maxInputChars
+    ? ` / ${state.maxInputChars.toLocaleString("zh-CN")}`
+    : "";
+  elements.charCount.textContent = `${count.toLocaleString("zh-CN")}${limit} 字符`;
+}
+
+function updateRunAvailability() {
+  elements.runButton.disabled =
+    state.loading ||
+    (state.requiresConsent && !elements.consentCheckbox.checked);
 }
 
 function formatBytes(bytes) {
@@ -548,7 +566,8 @@ function renderResult(data) {
   elements.metaRouteConfidence.textContent = `${Math.round(
     Number(decision.confidence || 0) * 100,
   )}%`;
-  elements.metaProvider.textContent = data.provider || "mock";
+  elements.metaProvider.textContent =
+    data.provider === "mock" ? "本地规则" : "第三方 AI 服务";
 
   const warnings = result.warnings || [];
   elements.warningsBlock.hidden = !warnings.length;
@@ -638,10 +657,15 @@ async function runAgent(event) {
     showFormError(`文件超过 ${limitMb} MB，请压缩或拆分后再试。`);
     return;
   }
+  if (state.requiresConsent && !elements.consentCheckbox.checked) {
+    showFormError("请先确认在线 AI 数据使用提示。");
+    elements.consentCheckbox.focus();
+    return;
+  }
 
   state.loading = true;
   let completed = false;
-  elements.runButton.disabled = true;
+  updateRunAvailability();
   elements.runButton.classList.add("is-loading");
   elements.runButton.querySelector("span").textContent = "正在校样";
   setProcessStep("read");
@@ -650,6 +674,9 @@ async function runAgent(event) {
   const formData = new FormData();
   formData.append("task", state.task);
   formData.append("goal", elements.goal.value.trim());
+  if (state.requiresConsent && elements.consentCheckbox.checked) {
+    formData.append("consent", "accepted");
+  }
   if (state.mode === "upload") {
     formData.append("file", state.file, state.file.name);
   } else {
@@ -676,7 +703,10 @@ async function runAgent(event) {
     renderError(error.message);
   } finally {
     state.loading = false;
-    elements.runButton.disabled = false;
+    if (completed && state.requiresConsent) {
+      elements.consentCheckbox.checked = false;
+    }
+    updateRunAvailability();
     elements.runButton.classList.remove("is-loading");
     elements.runButton.querySelector("span").textContent = "运行 Agent";
     if (completed) {
@@ -695,23 +725,63 @@ async function checkHealth() {
     if (Number.isFinite(Number(data.max_upload_bytes))) {
       state.maxUploadBytes = Number(data.max_upload_bytes);
     }
+    if (Number.isFinite(Number(data.max_input_chars))) {
+      state.maxInputChars = Number(data.max_input_chars);
+      updateCharCount();
+    }
     elements.runtimeBadge.classList.add("is-ready");
+    state.publicDemo = Boolean(data.public_demo);
+    state.onlineModel = Boolean(data.online_model);
+    state.requiresConsent = state.publicDemo && state.onlineModel;
+    elements.aiConsent.hidden = !state.requiresConsent;
+
+    elements.aiConsentCopy.textContent = state.requiresConsent
+      ? "提交后，文书正文会发送到第三方 AI 服务处理，用于生成校样建议。"
+      : "";
+
     if (data.public_demo) {
       const retentionMinutes = Math.max(
         1,
         Math.round(Number(data.retention_seconds || 0) / 60),
       );
       elements.demoBanner.hidden = false;
-      elements.demoNotice.textContent =
-        `请勿上传真实证件、合同、简历或票据。` +
-        `结果约 ${retentionMinutes} 分钟后自动删除。`;
-      elements.providerStatus.textContent = "公开演示 · 本地规则";
+      if (state.onlineModel) {
+        const perIpLimit = Number(data.max_runs_per_day || 0);
+        const globalLimit = Number(data.global_runs_per_day || 0);
+        const quotaParts = [];
+        if (perIpLimit > 0) {
+          quotaParts.push(`每 IP 每日 ${perIpLimit} 次`);
+        }
+        if (globalLimit > 0) {
+          quotaParts.push(`全站每日 ${globalLimit} 次`);
+        }
+        const quotaText = quotaParts.length
+          ? `限额：${quotaParts.join("，")}。`
+          : "在线调用受额度限制。";
+        elements.demoNotice.textContent =
+          `正文会发送到第三方 AI API，禁止提交敏感信息，每次提交均需确认。` +
+          `${quotaText}本站生成结果约 ${retentionMinutes} 分钟后自动删除。`;
+        elements.providerStatus.textContent =
+          "公网在线 · 第三方 AI 服务";
+        elements.privacyNoteTitle.textContent = "第三方 AI 处理";
+        elements.privacyNoteCopy.textContent =
+          "本次提交会把正文发送给在线模型 API。结果写入";
+      } else {
+        elements.demoNotice.textContent =
+          `请勿上传真实证件、合同、简历或票据。` +
+          `结果约 ${retentionMinutes} 分钟后自动删除。`;
+        elements.providerStatus.textContent = "公开演示 · 本地规则";
+        elements.privacyNoteTitle.textContent = "公开演示";
+        elements.privacyNoteCopy.textContent =
+          "当前仅运行本地规则，不上传云端。结果写入";
+      }
     } else {
       elements.providerStatus.textContent =
-        data.provider === "openai"
-          ? `在线模型 · ${data.model || "未指定模型"}`
+        data.provider !== "mock"
+          ? "在线模型 · 第三方 AI 服务"
           : "本地规则 · 无需 API Key";
     }
+    updateRunAvailability();
   } catch (error) {
     elements.runtimeBadge.classList.add("is-error");
     elements.providerStatus.textContent = "本地服务状态未知";
@@ -761,6 +831,10 @@ function bindEvents() {
   elements.clearFile.addEventListener("click", () => {
     showFile(null);
     clearFormError();
+  });
+  elements.consentCheckbox.addEventListener("change", () => {
+    clearFormError();
+    updateRunAvailability();
   });
   elements.exampleButton.addEventListener("click", loadExample);
   elements.form.addEventListener("submit", runAgent);

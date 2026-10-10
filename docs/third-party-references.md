@@ -12,6 +12,7 @@
 | `EthanYoQ/Invoice-Downloader` | Apache-2.0 | 收票、OCR、分类和 Excel 汇总需求 |
 | `PaddlePaddle/PaddleOCR` | Apache-2.0 | 可选 OCR 依赖 |
 | `microsoft/markitdown` | MIT | 可选文档转 Markdown 依赖 |
+| `pypdfium2-team/pypdfium2` | BSD-3-Clause / Apache-2.0 | 扫描版 PDF 页面渲染，配合 OCR 使用 |
 | `Unstructured-IO/unstructured` | Apache-2.0 | 复杂文档解析方向 |
 
 ## 公开回归样本来源
